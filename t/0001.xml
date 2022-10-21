@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- english -->
+<language>
+	<!-- "soh: xFourtress" = "xFourtress" = "24 6 15 21 18 20 18 5 19 19" in https://www.boxentriq.com/code-breaking/letters-to-numbers -->
+	<page id="211820" voice="no">
+        <t id="1">Attacking target.</t>
+		<t id="2">Attacking capital target.</t>
+		<t id="3">Carrier fleet attacking target.</t>
+		<t id="4">Carrier fleet scrambling attack target.</t>
+		<t id="5">Attacking fighter target.</t>
+		<t id="6">The last 10 logbook entries "general":</t>
+
+		<t id="7">History</t>
+	</page>
+</language>

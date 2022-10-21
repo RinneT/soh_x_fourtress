@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="Overwatch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+    <!-- Initialize the UI -->
+    <cue name="OnLuaLoaderReady">
+			<conditions>
+				<event_ui_triggered screen="'Lua_Loader'" control="'Ready'" />
+			</conditions>
+			<actions>
+				<raise_lua_event name="'Lua_Loader.Load'" param="'extensions.kuertee_ui_extensions.ui.kuertee_menu_map'"/>
+				<raise_lua_event name="'Lua_Loader.Load'" param="'extensions.soh_x_fourtress.ui.soh_x4tress'" />
+			</actions>
+		</cue>
+		<cue name="OnLuaLoaderReadyCompleted">
+			<conditions>
+				<event_cue_completed cue="OnLuaLoaderReady" />
+			</conditions>
+			<actions>
+				<reset_cue cue="OnLuaLoaderReady" />
+				<reset_cue cue="this" />
+			</actions>
+		</cue>
+    <!-- Finish initializing the UI -->
+
+    <cue name="Populate_Sectors">
+      <conditions>
+        <check_any>
+          <event_game_started />
+          <event_game_loaded />
+        </check_any>
+      </conditions>
+      <actions>
+        <!-- Get a list of all Ships in the universe. Needs to be continuosly updated later-->
+        <find_ship groupname="$AllShips" space="player.galaxy" multiple="true" />
+        <find_station groupname="$AllStations" space="player.galaxy" multiple="true" />
+      </actions>
+      <cues>
+        <cue name="TrackAllAttacks" instantiate="true">
+          <conditions>
+            <check_any>
+              <event_object_attacked_object group="$AllShips" />
+              <event_object_attacked_object group="$AllStations" />
+            </check_any>
+          </conditions>
+          <actions>
+
+            <!-- initalize the global event list, if it does not yet exist -->
+            <do_if value="not staticbase.$GlobalEvents?">
+              <set_value name="staticbase.$GlobalEvents" exact="[]" />
+            </do_if>
+
+            <set_value name="$Timestamp" exact="player.age" />
+
+            <set_value name="$AttackerId" exact="event.object.idcode" />
+            <set_value name="$Attacker" exact="event.object.knownname" />
+            <set_value name="$AttackerFaction" exact="event.object.owner.knownname" />
+            <set_value name="$AttackedId" exact="event.param.idcode" />
+            <set_value name="$Attacked" exact="event.param.knownname" />
+            <set_value name="$AttackedFaction" exact="event.param.owner.knownname" />
+            <!-- $KillMethod seems to always be null. Throws error as well -->
+            <!-- set_value name="$KillMethod" exact="event.param2.name" /-->
+            <set_value name="$TargetComponent" exact="event.param3.{1}.knownname" />
+            <!-- $Weapon seems to always be null. Throws error as well  -->
+            <!--set_value name="$Weapon" exact="event.param3.{2}.name" /-->
+
+            <set_value name="$GlobalEvent" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
+
+            <!-- Write data to a global event list -->
+            <append_to_list name="staticbase.$GlobalEvents" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
+
+            <set_value name="$Body" exact="'%3-%4 of %5 attacked %6-%7 of %9 in %10. The subsystem %8 was targeted.'.[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
+            <set_value name="$Ticker" exact="'Overwatch'" />
+            <set_value name="$Headline" exact="'Attack registered'" />
+
+            <!-- Write to logbook for debug purposes -->
+            <write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" />
+
+            <!-- Debug to csv file for algorithm development -->
+            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
+            <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
+            <remove_value name="$AttackLog" />
+            <!-- End Debug -->
+          </actions>
+        </cue>
+
+        <cue name="TrackAllDestructions" instantiate="true">
+          <conditions>
+            <check_any>
+              <event_object_attacked_object group="$AllShips" />
+              <event_object_attacked_object group="$AllStations" />
+            </check_any>
+          </conditions>
+          <actions>
+
+            <!-- initalize the global event list, if it does not yet exist -->
+            <do_if value="not staticbase.$GlobalEvents?">
+              <set_value name="staticbase.$GlobalEvents" exact="[]" />
+            </do_if>
+
+            <set_value name="$Timestamp" exact="player.age" />
+
+            <set_value name="$AttackerId" exact="event.param.idcode" />
+            <set_value name="$Attacker" exact="event.param.knownname" />
+            <set_value name="$AttackerFaction" exact="event.param.owner.knownname" />
+            <set_value name="$AttackedId" exact="event.object.idcode" />
+            <set_value name="$Attacked" exact="event.object.knownname" />
+            <set_value name="$AttackedFaction" exact="event.object.owner.knownname" />
+
+            <set_value name="$GlobalEvent" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
+
+            <!-- Write data to a global event list -->
+            <append_to_list name="staticbase.$GlobalEvents" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
+
+            <set_value name="$Body" exact="'%3-%4 of %5 destroyed %6-%7 of %9 in %10.'.[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
+            <set_value name="$Ticker" exact="'Overwatch'" />
+            <set_value name="$Headline" exact="'Destruction registered'" />
+
+            <!-- Write to logbook for debug purposes -->
+            <write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" />
+
+            <!-- Debug to csv file for algorithm development -->
+            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
+            <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
+            <remove_value name="$AttackLog" />
+            <!-- End Debug -->
+          </actions>
+        </cue>
+      </cues>
+    </cue>
+  </cues>
+</mdscript>
