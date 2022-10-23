@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<mdscript name="Overwatch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+<mdscript name="SoH_Observer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!-- Soh X4tress Observer script. This script observes the universe and collects data for the SoH X4tress Analyizer-->
+  <!-- The data will be stored in the list staticbase.$GlobalEvents -->
   <cues>
     <!-- Initialize the UI -->
     <cue name="OnLuaLoaderReady">
@@ -69,7 +71,7 @@
             <append_to_list name="staticbase.$GlobalEvents" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
 
             <set_value name="$Body" exact="'%3-%4 of %5 attacked %6-%7 of %9 in %10. The subsystem %8 was targeted.'.[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
-            <set_value name="$Ticker" exact="'Overwatch'" />
+            <set_value name="$Ticker" exact="'Observer'" />
             <set_value name="$Headline" exact="'Attack registered'" />
 
             <!-- Write to logbook for debug purposes -->
@@ -112,7 +114,7 @@
             <append_to_list name="staticbase.$GlobalEvents" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
 
             <set_value name="$Body" exact="'%3-%4 of %5 destroyed %6-%7 of %9 in %10.'.[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
-            <set_value name="$Ticker" exact="'Overwatch'" />
+            <set_value name="$Ticker" exact="'Observer'" />
             <set_value name="$Headline" exact="'Destruction registered'" />
 
             <!-- Write to logbook for debug purposes -->

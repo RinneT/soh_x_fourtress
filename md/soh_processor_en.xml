@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="SoH_Processor_En" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!-- Soh X4tress Processor script for the english language. This script takes data from the SoH X4tress Analyizer and generates the text displayed in the UI -->
+  <cues>
+    <!-- Test event capture on loading the Info Screen -->
+    <cue name="SoHProcessTextEn" instantiate="true">
+		<conditions>
+            <!-- prepare the text when the player opens the info menu for a specific object on the map screen -->
+            <event_ui_triggered screen="'MapMenu'" control="'infomenu_open'" comment="event.param3 is the selected ship or station"/>
+        </conditions>
+		<actions>
+        <set_value name="$Selected" exact="component.{event.param3}"/>
+        <set_value name="$SelectedId" exact="$Selected.idcode"/>
+        <set_value name="$SelectedClass" exact="$Selected.class"/>
+        <debug_text text="'SoHProcessTextEn called for %1 %2'.[$SelectedClass, $SelectedId]"/>
+        
+        <!-- ToDo: How to actually retrieve the list from soh_observer.xml? Is it @global? -->
+        <do_if value="not staticbase.$GlobalEvents?">
+            <set_value name="staticbase.$GlobalEvents" exact="[]" />
+        </do_if>
+        <debug_text text="'Global Events list has %1 entries'.[staticbase.$GlobalEvents.count]"/>
+
+        <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
+        <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$SelectedId"/>
+			</actions>
+	</cue>
+  </cues>
+</mdscript>

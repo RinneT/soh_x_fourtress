@@ -5,15 +5,30 @@ local Lib = require ("extensions.sn_mod_support_apis.lua_interface").Library
 local mapMenu = nil
 local origFuncs = {}
 local newFuncs = {}
+newFuncs.objectHistory = {}
 
 -- Register the functions
 local function init ()
     -- DebugError ("soh_x4tress.init")
+	RegisterEvent ("X4tress.OnInfoMenuOpen", newFuncs.OnInfoMenuOpen)
+	RegisterEvent ("X4tress.OnInfoMenuClose", newFuncs.OnInfoMenuClose)
     newFuncs.player_id = ConvertStringTo64Bit (tostring (C.GetPlayerID ()))
     -- DebugError ("C.GetPlayerID (): " .. tostring (C.GetPlayerID ()))
     mapMenu = Lib.Get_Egosoft_Menu ("MapMenu")
     mapMenu.registerCallback ("createOrdersMenuHeader_on_addorderHeaderRow", newFuncs.createOrdersMenuHeader_on_addorderHeaderRow)
 	mapMenu.registerCallback ("createInfoFrame_on_menu_infoTable_info", newFuncs.creteSohHistory)
+end
+
+-- Load the history text for the current object when the menu is closed
+function newFuncs.OnInfoMenuOpen (_, params)
+	-- DebugError ("newFuncs.OnInfoMenuClose")
+	newFuncs.objectHistory = params
+end
+
+-- Unload the history text for the current object when the menu is closed
+function newFuncs.OnInfoMenuClose ()
+	-- DebugError ("newFuncs.OnInfoMenuClose")
+	newFuncs.objectHistory = {}
 end
 
 -- Create the Menu Button if it does not yet exist
@@ -30,7 +45,7 @@ function newFuncs.createOrdersMenuHeader_on_addorderHeaderRow (row, count, insta
 end
 
 function newFuncs.creteSohHistory(inputframe, instance)
-	local description = "this is a test text"
+	local description = newFuncs.objectHistory
     local table_description = inputframe:addTable(1, { tabOrder = 3, highlightMode = "off" })
 	row = table_description:addRow(false, { fixed = true, bgColor = Helper.defaultTitleBackgroundColor })
     -- Heading

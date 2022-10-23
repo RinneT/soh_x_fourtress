@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="SoH_Analyzer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!-- Soh X4tress Analyzer script. This script Regularly analyzes the GlobalEvents list from the SoH X4tress Observer and creates reportable Events from it. -->
+  <!-- This script also removes processed or deprecated info from the GlobalEvents list -->
+  <cues>
+  </cues>
+</mdscript>
