@@ -15,13 +15,25 @@
         <debug_text text="'SoHProcessTextEn called for %1 %2'.[$SelectedClass, $SelectedId]"/>
         
         <!-- ToDo: How to actually retrieve the list from soh_observer.xml? Is it @global? -->
-        <do_if value="not staticbase.$GlobalEvents?">
-            <set_value name="staticbase.$GlobalEvents" exact="[]" />
-        </do_if>
-        <debug_text text="'Global Events list has %1 entries'.[staticbase.$GlobalEvents.count]"/>
+        <set_value name="global.$GlobalEvents" exact="@global.$GlobalEvents" />
+        <debug_text text="'Global Events list has %1 entries'.[global.$GlobalEvents.count]"/>
+
+        <set_value name="$DisplayText" exact="'No known events for %1 %2'.[$SelectedClass, $SelectedId]" />
+        <set_value name="$AppendText" exact="false" />
+        <do_for_each name="$Event" in="global.$GlobalEvents">
+          <set_value name="$AttackerId" exact="$Event.{3}"/>
+          <do_if value="$AttackerId == $SelectedId">
+            <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
+            <do_if value="$AppendText == false">
+              <set_value name="$DisplayText" exact="''" />
+              <set_value name="$AppendText" exact="true" />
+            </do_if>
+            <set_value name="$DisplayText" exact="$DisplayText + '%1 attacked %2 - %3 in %4\n'.[$AttackerId, $Event.{7}, $Event.{6}, $Event.{10}]" />
+          </do_if>
+        </do_for_each>
 
         <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
-        <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$SelectedId"/>
+        <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$DisplayText"/>
 			</actions>
 	</cue>
   </cues>

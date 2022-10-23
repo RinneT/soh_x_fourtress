@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <mdscript name="SoH_Observer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <!-- Soh X4tress Observer script. This script observes the universe and collects data for the SoH X4tress Analyizer-->
-  <!-- The data will be stored in the list staticbase.$GlobalEvents -->
+  <!-- The data will be stored in the list global.$GlobalEvents -->
   <cues>
     <!-- Initialize the UI -->
     <cue name="OnLuaLoaderReady">
@@ -47,8 +47,8 @@
           <actions>
 
             <!-- initalize the global event list, if it does not yet exist -->
-            <do_if value="not staticbase.$GlobalEvents?">
-              <set_value name="staticbase.$GlobalEvents" exact="[]" />
+            <do_if value="not global.$GlobalEvents?">
+              <set_value name="global.$GlobalEvents" exact="[]" />
             </do_if>
 
             <set_value name="$Timestamp" exact="player.age" />
@@ -68,7 +68,7 @@
             <set_value name="$GlobalEvent" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
 
             <!-- Write data to a global event list -->
-            <append_to_list name="staticbase.$GlobalEvents" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
+            <append_to_list name="global.$GlobalEvents" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
 
             <set_value name="$Body" exact="'%3-%4 of %5 attacked %6-%7 of %9 in %10. The subsystem %8 was targeted.'.[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
             <set_value name="$Ticker" exact="'Observer'" />
@@ -95,8 +95,8 @@
           <actions>
 
             <!-- initalize the global event list, if it does not yet exist -->
-            <do_if value="not staticbase.$GlobalEvents?">
-              <set_value name="staticbase.$GlobalEvents" exact="[]" />
+            <do_if value="not global.$GlobalEvents?">
+              <set_value name="global.$GlobalEvents" exact="[]" />
             </do_if>
 
             <set_value name="$Timestamp" exact="player.age" />
@@ -111,7 +111,7 @@
             <set_value name="$GlobalEvent" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
 
             <!-- Write data to a global event list -->
-            <append_to_list name="staticbase.$GlobalEvents" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
+            <append_to_list name="global.$GlobalEvents" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
 
             <set_value name="$Body" exact="'%3-%4 of %5 destroyed %6-%7 of %9 in %10.'.[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
             <set_value name="$Ticker" exact="'Observer'" />
