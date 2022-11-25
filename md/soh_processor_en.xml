@@ -15,12 +15,12 @@
         <debug_text text="'SoHProcessTextEn called for %1 %2'.[$SelectedClass, $SelectedId]"/>
         
         <!-- ToDo: How to actually retrieve the list from soh_observer.xml? Is it @global? -->
-        <set_value name="global.$GlobalEvents" exact="@global.$GlobalEvents" />
-        <debug_text text="'Global Events list has %1 entries'.[global.$GlobalEvents.count]"/>
+        <set_value name="global.$SoHGlobalEvents" exact="@global.$SoHGlobalEvents" />
+        <debug_text text="'Global Events list has %1 entries'.[global.$SoHGlobalEvents.count]"/>
 
         <set_value name="$DisplayText" exact="'No known events for %1 %2'.[$SelectedClass, $SelectedId]" />
         <set_value name="$AppendText" exact="false" />
-        <do_for_each name="$Event" in="global.$GlobalEvents">
+        <do_for_each name="$Event" in="global.$SoHGlobalEvents">
           <set_value name="$AttackerId" exact="$Event.{3}"/>
           <do_if value="$AttackerId == $SelectedId">
             <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
