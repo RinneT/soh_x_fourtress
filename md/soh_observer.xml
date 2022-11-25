@@ -68,12 +68,12 @@
             <set_value name="$AttackedPosY" exact="event.param.position.y" />
             <set_value name="$AttackedPosZ" exact="event.param.position.z" />
 
-            <set_value name="$GlobalEvent" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
+            <set_value name="$GlobalEvent" exact="[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
 
             <!-- Write data to a global event list -->
-            <append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
+            <append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
 
-            <set_value name="$Body" exact="'%3-%4 of %5 attacked %6-%7 of %9 in %10. The subsystem %8 was targeted.'.[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
+            <set_value name="$Body" exact="'%3-%4 of %5 attacked %6-%7 of %9 in %10. The subsystem %8 was targeted.'.[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname]" />
             <set_value name="$Ticker" exact="'Observer'" />
             <set_value name="$Headline" exact="'Attack registered'" />
 
@@ -81,7 +81,7 @@
             <write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" />
 
             <!-- Debug to csv file for algorithm development -->
-            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'attacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
+            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
             <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
             <remove_value name="$AttackLog" />
             <!-- End Debug -->
@@ -114,12 +114,12 @@
             <set_value name="$AttackedPosY" exact="event.param.position.y" />
             <set_value name="$AttackedPosZ" exact="event.param.position.z" />
 
-            <set_value name="$GlobalEvent" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
+            <set_value name="$GlobalEvent" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
 
             <!-- Write data to a global event list -->
-            <append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
+            <append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
 
-            <set_value name="$Body" exact="'%3-%4 of %5 destroyed %6-%7 of %9 in %10.'.[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname]" />
+            <set_value name="$Body" exact="'%3-%4 of %5 destroyed %6-%7 of %9 in %10.'.[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname]" />
             <set_value name="$Ticker" exact="'Observer'" />
             <set_value name="$Headline" exact="'Destruction registered'" />
 
@@ -127,7 +127,7 @@
             <write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" />
 
             <!-- Debug to csv file for algorithm development -->
-            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'destroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, null, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
+            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
             <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
             <remove_value name="$AttackLog" />
             <!-- End Debug -->
