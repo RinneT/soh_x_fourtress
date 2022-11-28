@@ -78,7 +78,7 @@
             <set_value name="$Headline" exact="'Attack registered'" />
 
             <!-- Write to logbook for debug purposes -->
-            <write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" />
+            <!--write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" /-->
 
             <!-- Debug to csv file for algorithm development -->
             <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />
@@ -124,7 +124,7 @@
             <set_value name="$Headline" exact="'Destruction registered'" />
 
             <!-- Write to logbook for debug purposes -->
-            <write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" />
+            <!--write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" /-->
 
             <!-- Debug to csv file for algorithm development -->
             <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPosX, $AttackedPosY, $AttackedPosZ]" />

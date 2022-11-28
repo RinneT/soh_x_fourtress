@@ -3,5 +3,145 @@
   <!-- Soh X4tress Analyzer script. This script Regularly analyzes the SoHGlobalEvents list from the SoH X4tress Observer and creates reportable Events from it. -->
   <!-- This script also removes processed or deprecated info from the SoHGlobalEvents list -->
   <cues>
+
+    <!-- The result of this cue is a list of Processed Events. The structure of a Processed Event is:
+     1.  eventType (String)
+     2.  numberOfEvents (Integer)
+     3.  scale (String)
+     4.  sector (String)
+     5.  numberOfParticipants (Integer)
+     6.  participants (Table with object ids as keys)
+     7.  startTime (Timestamp)
+     8.  endTime (Timestamp)
+     9.  centerX (length)
+     10. centerY (length)
+     11. centerZ (length)
+    -->
+
+    <cue name="SoHAnalyzeGlobalEvents" checkinterval="10min" instantiate="true">
+      <conditions>
+      </conditions>
+
+      <actions>
+        <debug_text text="'Running SoHAnalyzeGlobalEvents'"/>
+        <!-- initialize the constants -->
+
+        <set_value name="$Min_Size_Fight" exact="2"/>
+        <set_value name="$Min_Size_Skirmish" exact="4"/>
+        <set_value name="$Min_Size_Battle" exact="30"/>
+
+        <!-- initalize the processed events list, if it does not yet exist -->
+        <do_if value="not global.$SoHProcessedEvents?">
+          <set_value name="global.$SoHProcessedEvents" exact="[]" />
+        </do_if>
+
+        <!-- Split the global events by sector -->
+        
+        <set_value name="$SoHGlobalEventsBySector" exact="table[]" />
+        <do_for_each name="$Event" in="@global.$SoHGlobalEvents">
+          <set_value name="$Sector" exact="'$' + $Event.{10}" />
+          <do_if value="not $SoHGlobalEventsBySector.{$Sector}?">
+            <set_value name="$SoHGlobalEventsBySector.{$Sector}" exact="[]" />
+          </do_if>
+          <append_to_list name="$SoHGlobalEventsBySector.{$Sector}" exact="$Event" />
+        </do_for_each>
+        <debug_text text="'Collected %1 events in %2 sectors'.[@global.$SoHGlobalEvents.count, $SoHGlobalEventsBySector.keys.list.count]"/>
+
+        <!-- Summarize the Global Events for each sector into Processed Events -->
+        <do_for_each name="$SectorKey" in="$SoHGlobalEventsBySector">
+          <set_value name="$SectorEvents" exact="$SoHGlobalEventsBySector.{$SectorKey}"/>
+          <set_value name="$SoHSectorProcessedEvents" exact="[]" />
+
+          <!-- For each GlobalEvent of this sector, check if it can be assigned to any Processed Event. If not, create a new Processed Event from it -->
+          <do_for_each name="$SectorEvent" in="$SectorEvents">
+            <run_actions ref="SoHBelongsToEvent" result="$ProcessedEvent">
+              <param name="ProcessedEvents" value="$SoHSectorProcessedEvents"/>
+              <param name="SectorEvent" value="$SectorEvent"/>
+            </run_actions>
+            <!-- If it does not belong to a processed Event, create a new one -->
+            <!-- Fields that are left empty for now, will be filled later in post processing or by other functions -->
+            <do_if value="not $ProcessedEvent">
+              <debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.{1}]" />
+              <set_value name="$Participants" exact="table[{'$' + $SectorEvent.{3}} = 1, {'$' + $SectorEvent.{6}} = 1]"/>
+              <set_value name="$ProcessedEvent" exact="['', 1, '', $SectorEvent.{10}, 0, $Participants, $SectorEvent.{1}, $SectorEvent.{1}, $SectorEvent.{11}, $SectorEvent.{12}, $SectorEvent.{13}]"/>
+              <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
+            </do_if>
+          </do_for_each>
+
+          <!-- Post Process and attach to the global list -->
+          <do_for_each name="$ProcessedEvent" in="$SoHSectorProcessedEvents">
+            <set_value name="$ProcessedEvent.{1}" exact="'battle'" />
+            <set_value name="$ProcessedEvent.{5}" exact="$ProcessedEvent.{6}.keys.list.count" />
+
+            <append_to_list name="global.$SoHProcessedEvents" exact="$ProcessedEvent" />
+          </do_for_each>
+
+          <!-- Clear temp lists -->
+          <clear_list list="$SoHSectorProcessedEvents" />
+        </do_for_each>
+      </actions>
+    </cue>
+    
+
+    <!-- Checks if a Global Event belongs to a Processed event and manipulates the processed Event if true. -->
+    <library name="SoHBelongsToEvent" purpose="run_actions" >
+      <params>
+        <param name="ProcessedEvents"/>
+        <param name="SectorEvent"/>
+      </params>
+      <actions>
+        <debug_text text="'Comparing Event at %1 with %2 Processed Events'.[$SectorEvent.{1}, $ProcessedEvents.count]" />
+        <do_for_each name="$ProcessedEvent" in="$ProcessedEvents">
+          <run_actions ref="SoHIsInTime" result="$FoundEvent">
+            <param name="ProcessedEvent" value="$ProcessedEvent"/>
+            <param name="SectorEvent" value="$SectorEvent"/>
+          </run_actions>
+          <!-- If it belongs to the Processed Event, update it and break out of the loop by returning the Event. -->
+          <do_if value="$FoundEvent">
+            <debug_text text="'Updating Processed Event with Timestamp %1 to %2.'.[$ProcessedEvent.{8}, $SectorEvent.{1}]" />
+            <!-- TODO: Shift the Event centroid -->
+
+            <!-- Update the timestamp -->
+            <set_value name="$ProcessedEvent.{8}" exact="$SectorEvent.{1}" />
+            <!-- TODO: Add the Event participants if they do not yet exist -->
+            <set_value name="$ProcessedEvent.{6}.{'$' + $SectorEvent.{3}}" exact="1"/>
+            <set_value name="$ProcessedEvent.{6}.{'$' + $SectorEvent.{6}}" exact="1"/>
+            <!-- Update the Number of Events -->
+            <set_value name="$ProcessedEvent.{2}" exact="$ProcessedEvent.{2} + 1" />
+            <return value="$ProcessedEvent"/>
+          </do_if>
+      </do_for_each>
+      <return value="null"/>
+      </actions>
+    </library>
+
+    <!-- Checks if a given Global Event is within time range of a processed Event. -->
+    <library name="SoHIsInTime" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="SectorEvent"/>
+        <param name="Event_Max_Time" default="5min"/>
+      </params>
+      <actions>
+        <set_value name="$result" exact="($SectorEvent.{1} - $ProcessedEvent.{8}) lt $Event_Max_Time" />
+        <!--do_if value="$result"-->
+          <debug_text text="'Time between %1 and %2 is %3. Max is %4 Returning %5'.[$SectorEvent.{1}, $ProcessedEvent.{8}, $SectorEvent.{1} - $ProcessedEvent.{8}, $Event_Max_Time, $result]" />
+        <!--/do_if-->
+        <return value="$result"/>
+      </actions>
+    </library>
+
+    <!-- Checks if a given Global Event is within range of a processed Event. -->
+    <library name="SoHIsInDistance" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="SectorEvent"/>
+        <param name="Event_Max_Range" default="30km"/>
+      </params>
+      <actions>
+        <debug_text text="$foo"/>
+      </actions>
+    </library>
+
   </cues>
 </mdscript>

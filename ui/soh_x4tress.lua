@@ -19,9 +19,9 @@ local function init ()
 	mapMenu.registerCallback ("createInfoFrame_on_menu_infoTable_info", newFuncs.creteSohHistory)
 end
 
--- Load the history text for the current object when the menu is closed
+-- Load the history text for the current object when the menu is opened
 function newFuncs.OnInfoMenuOpen (_, params)
-	-- DebugError ("newFuncs.OnInfoMenuClose")
+	-- DebugError ("newFuncs.OnInfoMenuOpen")
 	newFuncs.objectHistory = params
 end
 
