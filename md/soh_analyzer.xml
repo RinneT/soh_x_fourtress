@@ -13,9 +13,7 @@
      6.  participants (Table with object ids as keys)
      7.  startTime (Timestamp)
      8.  endTime (Timestamp)
-     9.  centerX (length)
-     10. centerY (length)
-     11. centerZ (length)
+     9.  center (position)
     -->
 
     <cue name="SoHAnalyzeGlobalEvents" checkinterval="10min" instantiate="true">
@@ -63,7 +61,7 @@
             <do_if value="not $ProcessedEvent">
               <debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.{1}]" />
               <set_value name="$Participants" exact="table[{'$' + $SectorEvent.{3}} = 1, {'$' + $SectorEvent.{6}} = 1]"/>
-              <set_value name="$ProcessedEvent" exact="['', 1, '', $SectorEvent.{10}, 0, $Participants, $SectorEvent.{1}, $SectorEvent.{1}, $SectorEvent.{11}, $SectorEvent.{12}, $SectorEvent.{13}]"/>
+              <set_value name="$ProcessedEvent" exact="['', 1, '', $SectorEvent.{10}, 0, $Participants, $SectorEvent.{1}, $SectorEvent.{1}, $SectorEvent.{11}]"/>
               <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
             </do_if>
           </do_for_each>
