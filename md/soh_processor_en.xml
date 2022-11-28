@@ -21,7 +21,7 @@
         <set_value name="$AppendText" exact="false" />
         <do_for_each name="$Event" in="@global.$SoHProcessedEvents">
           <!-- Check if the Unit name is part of the participants table -->
-          <set_value name="$Participants" exact="$Event.{6}"/>
+          <set_value name="$Participants" exact="$Event.$participants"/>
           <set_value name="$AttackerId" exact="@$Participants.{'$' + $SelectedId}"/>
           <do_if value="$AttackerId">
             <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
@@ -29,7 +29,7 @@
               <set_value name="$DisplayText" exact="''" />
               <set_value name="$AppendText" exact="true" />
             </do_if>
-            <set_value name="$DisplayText" exact="$DisplayText + '%1 took part in a battle with %2 participants in %3 at %4\n'.[$SelectedId, $Event.{5}, $Event.{4}, $Event.{7}]" />
+            <set_value name="$DisplayText" exact="$DisplayText + '%1 took part in a battle with %2 participants in %3 at %4\n'.[$SelectedId, $Event.$numberOfParticipants, $Event.$sector, $Event.$startTime]" />
           </do_if>
         </do_for_each>
 

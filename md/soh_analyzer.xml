@@ -5,18 +5,18 @@
   <cues>
 
     <!-- The result of this cue is a list of Processed Events. The structure of a Processed Event is:
-     1.  eventType (String)
-     2.  numberOfEvents (Integer)
-     3.  scale (String)
-     4.  sector (String)
-     5.  numberOfParticipants (Integer)
-     6.  participants (Table with object ids as keys)
-     7.  startTime (Timestamp)
-     8.  endTime (Timestamp)
-     9.  center (position)
+    $eventType            (String)    - Type of the processed Event (e.g. 'battle')
+    $numberOfEvents       (Integer)   - Number of Global Events that are summarized in this Event
+    $scale                (String)    - How large the Event is considered. (e.g. 'tiny', 'epic')
+    $sector               (String)    - The sector the Event is associated with
+    $numberOfParticipants (Integer)   - The number of units that participated in this Event
+    $participants         (Table)     - list of the participants in this event, with '$ObjectId' as the key (E.g. '$RXM-030')
+    $startTime            (Timestamp) - When the first Global Event of this Event occured
+    $endTime              (Timestamp) - When the last Global Event of this Event occured
+    $center               (Position)  - The positional centroid of this Event
     -->
 
-    <cue name="SoHAnalyzeGlobalEvents" checkinterval="10min" instantiate="true">
+    <cue name="SoHAnalyzeGlobalEvents" checkinterval="5min" instantiate="true">
       <conditions>
       </conditions>
 
@@ -37,7 +37,7 @@
         
         <set_value name="$SoHGlobalEventsBySector" exact="table[]" />
         <do_for_each name="$Event" in="@global.$SoHGlobalEvents">
-          <set_value name="$Sector" exact="'$' + $Event.{10}" />
+          <set_value name="$Sector" exact="'$' + $Event.$sector" />
           <do_if value="not $SoHGlobalEventsBySector.{$Sector}?">
             <set_value name="$SoHGlobalEventsBySector.{$Sector}" exact="[]" />
           </do_if>
@@ -59,17 +59,17 @@
             <!-- If it does not belong to a processed Event, create a new one -->
             <!-- Fields that are left empty for now, will be filled later in post processing or by other functions -->
             <do_if value="not $ProcessedEvent">
-              <debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.{1}]" />
-              <set_value name="$Participants" exact="table[{'$' + $SectorEvent.{3}} = 1, {'$' + $SectorEvent.{6}} = 1]"/>
-              <set_value name="$ProcessedEvent" exact="['', 1, '', $SectorEvent.{10}, 0, $Participants, $SectorEvent.{1}, $SectorEvent.{1}, $SectorEvent.{11}]"/>
+              <debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" />
+              <set_value name="$Participants" exact="table[{'$' + $SectorEvent.$attackerId} = 1, {'$' + $SectorEvent.$attackedId} = 1]"/>
+              <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants, $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos]"/>
               <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
             </do_if>
           </do_for_each>
 
           <!-- Post Process and attach to the global list -->
           <do_for_each name="$ProcessedEvent" in="$SoHSectorProcessedEvents">
-            <set_value name="$ProcessedEvent.{1}" exact="'battle'" />
-            <set_value name="$ProcessedEvent.{5}" exact="$ProcessedEvent.{6}.keys.list.count" />
+            <set_value name="$ProcessedEvent.$eventType" exact="'battle'" />
+            <set_value name="$ProcessedEvent.$numberOfParticipants" exact="$ProcessedEvent.$participants.keys.list.count" />
 
             <append_to_list name="global.$SoHProcessedEvents" exact="$ProcessedEvent" />
           </do_for_each>
@@ -88,7 +88,7 @@
         <param name="SectorEvent"/>
       </params>
       <actions>
-        <debug_text text="'Comparing Event at %1 with %2 Processed Events'.[$SectorEvent.{1}, $ProcessedEvents.count]" />
+        <debug_text text="'Comparing Event at %1 with %2 Processed Events'.[$SectorEvent.$timestamp, $ProcessedEvents.count]" />
         <do_for_each name="$ProcessedEvent" in="$ProcessedEvents">
           <run_actions ref="SoHIsInTime" result="$FoundEvent">
             <param name="ProcessedEvent" value="$ProcessedEvent"/>
@@ -96,16 +96,16 @@
           </run_actions>
           <!-- If it belongs to the Processed Event, update it and break out of the loop by returning the Event. -->
           <do_if value="$FoundEvent">
-            <debug_text text="'Updating Processed Event with Timestamp %1 to %2.'.[$ProcessedEvent.{8}, $SectorEvent.{1}]" />
+            <debug_text text="'Updating Processed Event with Timestamp %1 to %2.'.[$ProcessedEvent.$endTime, $SectorEvent.$timestamp]" />
             <!-- TODO: Shift the Event centroid -->
 
             <!-- Update the timestamp -->
-            <set_value name="$ProcessedEvent.{8}" exact="$SectorEvent.{1}" />
+            <set_value name="$ProcessedEvent.$endTime" exact="$SectorEvent.$timestamp" />
             <!-- TODO: Add the Event participants if they do not yet exist -->
-            <set_value name="$ProcessedEvent.{6}.{'$' + $SectorEvent.{3}}" exact="1"/>
-            <set_value name="$ProcessedEvent.{6}.{'$' + $SectorEvent.{6}}" exact="1"/>
+            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackerId}" exact="1"/>
+            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackedId}" exact="1"/>
             <!-- Update the Number of Events -->
-            <set_value name="$ProcessedEvent.{2}" exact="$ProcessedEvent.{2} + 1" />
+            <set_value name="$ProcessedEvent.$numberOfEvents" exact="$ProcessedEvent.$numberOfEvents + 1" />
             <return value="$ProcessedEvent"/>
           </do_if>
       </do_for_each>
@@ -121,9 +121,9 @@
         <param name="Event_Max_Time" default="5min"/>
       </params>
       <actions>
-        <set_value name="$result" exact="($SectorEvent.{1} - $ProcessedEvent.{8}) lt $Event_Max_Time" />
+        <set_value name="$result" exact="($SectorEvent.$timestamp - $ProcessedEvent.$endTime) lt $Event_Max_Time" />
         <!--do_if value="$result"-->
-          <debug_text text="'Time between %1 and %2 is %3. Max is %4 Returning %5'.[$SectorEvent.{1}, $ProcessedEvent.{8}, $SectorEvent.{1} - $ProcessedEvent.{8}, $Event_Max_Time, $result]" />
+          <debug_text text="'Time between %1 and %2 is %3. Max is %4 Returning %5'.[$SectorEvent.$timestamp, $ProcessedEvent.$endTime, $SectorEvent.$timestamp - $ProcessedEvent.$endTime, $Event_Max_Time, $result]" />
         <!--/do_if-->
         <return value="$result"/>
       </actions>

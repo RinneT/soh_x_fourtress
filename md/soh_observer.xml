@@ -3,6 +3,21 @@
   <!-- Soh X4tress Observer script. This script observes the universe and collects data for the SoH X4tress Analyizer-->
   <!-- The data will be stored in the list global.$SoHGlobalEvents -->
   <cues>
+
+    <!-- The result of this cue is a list of Global Events. The structure of a Global Event (which is a table) is:
+     $timestamp         (Timestamp) - Timestamp of the Event
+     $eventType         (String)    - Observed Event Type. E.g. 'SohAttacked' for a registered attack
+     $attackerId        (String)    - Unit ID / Code of the attacking object
+     $attacker          (String)    - Full Name of the attacking object (knownname)
+     $attackerFaction   (String)    - Name of the faction of the attacking object
+     $attackedId        (String)    - Unit ID / Code of the attacked object
+     $attacked          (String)    - Full Name of the attacked object (knownname)
+     $targetComponent   (String)    - Name of the targeted component, if available
+     $attackedFaction   (String)    - Name of the faction of the attacked object
+     $sector            (String)    - Name of the Sector the Event happened in
+     $attackedPos       (position)  - Position of the attacked object
+    -->
+
     <!-- Initialize the UI -->
     <cue name="OnLuaLoaderReady">
 			<conditions>
@@ -67,7 +82,9 @@
             <set_value name="$AttackedPos" exact="event.param.position" />
 
             <!-- Write data to a global event list -->
-            <append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
+            
+            <append_to_list name="global.$SoHGlobalEvents" exact="table[$timestamp = $Timestamp, $eventType = 'SoHAttacked', $attackerId = $AttackerId, $attacker = $Attacker, $attackerFaction = $AttackerFaction, $attackedId = $AttackedId, $attacked = $Attacked, $targetComponent = $TargetComponent, $attackedFaction = $AttackedFaction, $sector = event.object.sector.knownname, $attackedPos = $AttackedPos]" />
+            <!--append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, $TargetComponent, $AttackedFaction, event.object.sector.knownname, $AttackedPos]" /-->
 
             <!-- Write to logbook for debug purposes -->
             <!--write_to_logbook category="tips" title="$Ticker + '-' + $Headline" text="$Body" /-->
@@ -104,10 +121,11 @@
             <set_value name="$AttackedFaction" exact="event.object.owner.knownname" />
             <set_value name="$AttackedPos" exact="event.param.position" />
 
-            <set_value name="$GlobalEvent" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
+            
 
             <!-- Write data to a global event list -->
-            <append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
+            <append_to_list name="global.$SoHGlobalEvents" exact="table[$timestamp = $Timestamp, $eventType = 'SoHAttacked', $attackerId = $AttackerId, $attacker = $Attacker, $attackerFaction = $AttackerFaction, $attackedId = $AttackedId, $attacked = $Attacked, $targetComponent = null, $attackedFaction = $AttackedFaction, $sector = event.object.sector.knownname, $attackedPos = $AttackedPos]" />
+            <!--append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" /-->
 
             <!-- Debug to csv file for algorithm development -->
             <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
