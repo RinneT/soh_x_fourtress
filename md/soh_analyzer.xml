@@ -16,7 +16,7 @@
     $center               (Position)  - The positional centroid of this Event
     -->
 
-    <cue name="SoHAnalyzeGlobalEvents" checkinterval="5min" instantiate="true">
+    <cue name="SoHAnalyzeGlobalEvents" checkinterval="2min" instantiate="true">
       <conditions>
       </conditions>
 
@@ -86,22 +86,26 @@
       <params>
         <param name="ProcessedEvents"/>
         <param name="SectorEvent"/>
+        <param name="Event_Max_Time" default="5min"/>
+        <param name="Event_Max_Range" default="30km"/>
       </params>
       <actions>
         <debug_text text="'Comparing Event at %1 with %2 Processed Events'.[$SectorEvent.$timestamp, $ProcessedEvents.count]" />
         <do_for_each name="$ProcessedEvent" in="$ProcessedEvents">
-          <run_actions ref="SoHIsInTime" result="$FoundEvent">
-            <param name="ProcessedEvent" value="$ProcessedEvent"/>
-            <param name="SectorEvent" value="$SectorEvent"/>
-          </run_actions>
           <!-- If it belongs to the Processed Event, update it and break out of the loop by returning the Event. -->
-          <do_if value="$FoundEvent">
+          <set_value name="$EventInTime" exact="($SectorEvent.$timestamp - $ProcessedEvent.$endTime) lt $Event_Max_Time"  />
+          <set_value name="$EventInRange" exact="$SectorEvent.$attackedPos.distanceto.{$ProcessedEvent.$center} lt $Event_Max_Range" />
+          <do_if value="$EventInTime and $EventInRange">
             <debug_text text="'Updating Processed Event with Timestamp %1 to %2.'.[$ProcessedEvent.$endTime, $SectorEvent.$timestamp]" />
-            <!-- TODO: Shift the Event centroid -->
+            <!-- Shift the Event centroid -->
+            <run_actions ref="SoHShiftCentroid" >
+              <param name="ProcessedEvent" value="$ProcessedEvent"/>
+              <param name="SectorEvent" value="$SectorEvent"/>
+            </run_actions>
 
             <!-- Update the timestamp -->
             <set_value name="$ProcessedEvent.$endTime" exact="$SectorEvent.$timestamp" />
-            <!-- TODO: Add the Event participants if they do not yet exist -->
+            <!-- Add the Event participants if they do not yet exist -->
             <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackerId}" exact="1"/>
             <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackedId}" exact="1"/>
             <!-- Update the Number of Events -->
@@ -113,31 +117,30 @@
       </actions>
     </library>
 
-    <!-- Checks if a given Global Event is within time range of a processed Event. -->
-    <library name="SoHIsInTime" purpose="run_actions">
+    <!-- Shifts the center of the a Processed Event after a new Global Event was added. -->
+    <library name="SoHShiftCentroid" purpose="run_actions">
       <params>
         <param name="ProcessedEvent"/>
         <param name="SectorEvent"/>
-        <param name="Event_Max_Time" default="5min"/>
       </params>
       <actions>
-        <set_value name="$result" exact="($SectorEvent.$timestamp - $ProcessedEvent.$endTime) lt $Event_Max_Time" />
-        <!--do_if value="$result"-->
-          <debug_text text="'Time between %1 and %2 is %3. Max is %4 Returning %5'.[$SectorEvent.$timestamp, $ProcessedEvent.$endTime, $SectorEvent.$timestamp - $ProcessedEvent.$endTime, $Event_Max_Time, $result]" />
-        <!--/do_if-->
-        <return value="$result"/>
-      </actions>
-    </library>
+        <set_value name="$numberOfEvents" exact="$ProcessedEvent.$numberOfEvents"/>
+        <set_value name="$center" exact="$ProcessedEvent.$center" />
+        <set_value name="$centerX" exact="($center.x * $numberOfEvents) + $SectorEvent.$attackedPos.x" />
+        <set_value name="$centerY" exact="($center.y * $numberOfEvents) + $SectorEvent.$attackedPos.y" />
+        <set_value name="$centerZ" exact="($center.z * $numberOfEvents) + $SectorEvent.$attackedPos.z" />
 
-    <!-- Checks if a given Global Event is within range of a processed Event. -->
-    <library name="SoHIsInDistance" purpose="run_actions">
-      <params>
-        <param name="ProcessedEvent"/>
-        <param name="SectorEvent"/>
-        <param name="Event_Max_Range" default="30km"/>
-      </params>
-      <actions>
-        <debug_text text="$foo"/>
+        <set_value name="$numberOfEvents" exact="$numberOfEvents + 1"/>
+        <set_value name="$centerX" exact="$center.x / $numberOfEvents" />
+        <set_value name="$centerY" exact="$center.y / $numberOfEvents" />
+        <set_value name="$centerZ" exact="$center.z / $numberOfEvents" />
+
+        <create_position name="$newCenter" x="$centerX" y="$centerY" z="$centerZ"/>
+
+        <debug_text text="'Shifted Event centroid from %1 to %2'.[$center, $newCenter]"/>
+        <set_value name="$ProcessedEvent.$center" exact="$newCenter"/>
+        
+        <remove_value name="$center" />
       </actions>
     </library>
 
