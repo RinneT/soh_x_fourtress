@@ -60,7 +60,7 @@
             <!-- Fields that are left empty for now, will be filled later in post processing or by other functions -->
             <do_if value="not $ProcessedEvent">
               <debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" />
-              <set_value name="$Participants" exact="table[{'$' + $SectorEvent.$attackerId} = 1, {'$' + $SectorEvent.$attackedId} = 1]"/>
+              <set_value name="$Participants" exact="table[{'$' + $SectorEvent.$attackerId} = $SectorEvent.$attackerType, {'$' + $SectorEvent.$attackedId} = $SectorEvent.$attackedType]"/>
               <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants, $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos]"/>
               <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
             </do_if>
@@ -139,7 +139,7 @@
 
         <debug_text text="'Shifted Event centroid from %1 to %2'.[$center, $newCenter]"/>
         <set_value name="$ProcessedEvent.$center" exact="$newCenter"/>
-        
+
         <remove_value name="$center" />
       </actions>
     </library>
