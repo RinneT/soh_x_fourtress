@@ -19,23 +19,155 @@
 
         <set_value name="$DisplayText" exact="'No known events for %1 %2'.[$SelectedClass, $SelectedId]" />
         <set_value name="$AppendText" exact="false" />
-        <do_for_each name="$Event" in="@global.$SoHProcessedEvents">
+        <do_for_each name="$ProcessedEvent" in="@global.$SoHProcessedEvents">
           <!-- Check if the Unit name is part of the participants table -->
-          <set_value name="$Participants" exact="$Event.$participants"/>
-          <set_value name="$AttackerId" exact="@$Participants.{'$' + $SelectedId}"/>
-          <do_if value="$AttackerId">
+          <set_value name="$Participants" exact="$ProcessedEvent.$participants"/>
+          <set_value name="$SelectedUnitType" exact="@$Participants.{'$' + $SelectedId}"/>
+          <do_if value="$SelectedUnitType">
             <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
-            <do_if value="$AppendText == false">
-              <set_value name="$DisplayText" exact="''" />
-              <set_value name="$AppendText" exact="true" />
+            <run_actions ref="SoHCreateBattleText" result="$displayText" >
+              <param name="ProcessedEvent" value="$ProcessedEvent"/>
+              <param name="SelectedUnit" value="$SelectedId"/>
+            </run_actions>
+
+            <debug_text text="'Text for %1 is: %2'.[$SelectedId, $displayText]" />
+            <do_if value="$AppendText">
+              <set_value name="$DisplayText" exact="$DisplayText + '\n' + $displayText"/>
             </do_if>
-            <set_value name="$DisplayText" exact="$DisplayText + '%1 took part in a battle with %2 participants in %3 at %4\n'.[$SelectedId, $Event.$numberOfParticipants, $Event.$sector, $Event.$startTime]" />
+            <do_else>
+              <set_value name="$AppendText" exact="true" />
+              <set_value name="$DisplayText" exact="$displayText"/>
+            </do_else>
+            
+            <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
+            <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$DisplayText"/>
           </do_if>
         </do_for_each>
 
-        <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
-        <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$DisplayText"/>
 			</actions>
 	  </cue>
+
+
+    <!-- Create the text for a battle event.  -->
+    <library name="SoHCreateBattleText" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="SelectedUnit"/>
+      </params>
+      <actions>
+        <set_value name="$displayText" exact="'%1 took part in a %2 with %3 participants.\n'.[$SelectedUnit, $ProcessedEvent.$eventType, $ProcessedEvent.$numberOfParticipants]"/>
+
+        <run_actions ref="SoHGenerateMajorParticipantsText" result="$majorShipText" >
+          <param name="ProcessedEvent" value="$ProcessedEvent"/>
+          <param name="SelectedUnit" value="$SelectedUnit"/>
+        </run_actions>
+        <do_if value="$majorShipText">
+          <set_value name="$displayText" exact="$displayText + $majorShipText"/>
+        </do_if>
+
+        <run_actions ref="SoHGenerateMajorEventsText" result="$majorEventsText" >
+          <param name="ProcessedEvent" value="$ProcessedEvent"/>
+          <param name="SelectedUnit" value="$SelectedUnit"/>
+        </run_actions>
+        <do_if value="$majorEventsText">
+          <set_value name="$displayText" exact="$displayText + $majorEventsText"/>
+        </do_if>
+        <debug_text text="'SoHCreateBattleText for %1 returns %2'.[$SelectedUnit, $displayText]" />
+        <return value="$displayText"/>
+
+      </actions>
+    </library>
+
+    <!-- Generates a text block for major participants in a processed event.  -->
+    <library name="SoHGenerateMajorParticipantsText" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="SelectedUnit"/>
+      </params>
+      <actions>
+        <!-- collect all ships that would be considered major (e.g. capital ships) -->
+        <set_value name="$majorShips" exact="[]"/>
+        <debug_text text="'SoHGenerateMajorParticipantsText: $ProcessedEvent.$participants.keys.list: %1 Count: %2'.[$ProcessedEvent.$participants.keys.list, $ProcessedEvent.$participants.keys.list.count]" />
+        
+        <do_for_each name="$participantId" in="$ProcessedEvent.$participants.keys.list">
+          <set_value name="$participantType" exact="$ProcessedEvent.$participants.{$participantId}"/>
+          <debug_text text="'SoHGenerateMajorParticipantsText: $participantType: %1'.[$participantType]" />
+          <do_if value="shiptype.destroyer == $participantType or 
+          shiptype.battleship == $participantType or 
+          shiptype.carrier == $participantType or 
+          shiptype.resupplier == $participantType">
+            <substitute_text text="$participantId">
+              <replace string="'$'" with="''"/>
+            </substitute_text>
+            <debug_text text="'%1 is of type %2'.[$participantId, $participantType]" />
+            <append_to_list name="$majorShips" exact="[$participantId, $participantType]"/>
+          </do_if>
+        </do_for_each>
+
+        <do_if value="$majorShips.count == 0">
+          <debug_text text="'SoHGenerateMajorParticipantsText: No major Ships found in battle'" />
+          <remove_value name="$majorShips" />
+          <return value="null"/>
+        </do_if>
+        <set_value name="$majorShipText" exact="'Other major participants were '"/>
+        <set_value name="$majorShipNo" exact="0" />
+
+        <do_for_each name="$ship" in="$majorShips">
+          <set_value name="$majorShipNo" exact="$majorShipNo + 1" />
+          <do_if value="$majorShipNo == $majorShips.count">
+            <set_value name="$majorShipText" exact="$majorShipText + 'and '"/>
+          </do_if>
+          <set_value name="$majorShipText" exact="$majorShipText + 'the %1 %2'.[$ship.{1}, $ship.{2}]"/>
+          <do_if value="$majorShipNo lt $majorShips.count - 1">
+            <set_value name="$majorShipText" exact="$majorShipText + ', '"/>
+          </do_if>
+          <do_if value="$majorShipNo == $majorShips.count">
+            <set_value name="$majorShipText" exact="$majorShipText + '.'"/>
+          </do_if>
+          <set_value name="$majorShipText" exact="$majorShipText + '\n'"/>
+        </do_for_each>
+
+        <debug_text text="'SoHGenerateMajorParticipantsText: returns %1'.[$majorShipText]" />
+        <remove_value name="$majorShips" />
+        <return value="$majorShipText"/>
+      </actions>
+    </library>
+
+    <!-- Generates a text block for major Events of a given processed event.  -->
+    <library name="SoHGenerateMajorEventsText" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="SelectedUnit"/>
+      </params>
+      <actions>
+        <set_value name="$majorEventsText" exact="'The %1 resulted in the destruction of '.[$ProcessedEvent.$eventType]"/>
+        <set_value name="$numberOfMajorEvents" exact="$ProcessedEvent.$majorEvents.count"/>
+        <set_value name="$majorEventNo" exact="0"/>
+        <debug_text text="'SoHGenerateMajorEventsText: $ProcessedEvent.$majorEvents.count: %1'.[$ProcessedEvent.$majorEvents.count]" />
+
+        <do_for_each name="$gEvent" in="$ProcessedEvent.$majorEvents">
+          <set_value name="$majorEventNo" exact="$majorEventNo + 1"/>
+          <set_value name="$majorEventsText" exact="$majorEventsText + ' the %1 %2 %3'.[$gEvent.$attackedFaction,$gEvent.$attacked,$gEvent.$attackedId]" />
+          <do_if value="$SelectedUnit == $gEvent.$attackerId">
+            <set_value name="$majorEventsText" exact="$majorEventsText + ' by %1'.[$gEvent.$attackerId]" />
+          </do_if>
+
+          <do_if value="$numberOfMajorEvents gt 1 and $numberOfMajorEvents == $majorEventNo + 1">
+            <set_value name="$majorEventsText" exact="$majorEventsText + ' as well as '" />
+          </do_if>
+          <do_elseif value="$numberOfMajorEvents gt 1 and $numberOfMajorEvents gt $majorEventNo + 1">
+            <set_value name="$majorEventsText" exact="$majorEventsText + ', '" />
+          </do_elseif>
+          <set_value name="$majorEventsText" exact="$majorEventsText + '\n'" />
+        </do_for_each>
+        <set_value name="$majorEventsText" exact="$majorEventsText + '\n'" />
+        <do_if value="$majorEventNo gt 0">
+          <debug_text text="'SoHGenerateMajorEventsText: returns %1'.[$majorEventsText]" />
+          <return value="$majorEventsText"/>
+        </do_if>
+        <debug_text text="'SoHGenerateMajorEventsText: returns null'" />
+        <return value="null"/>
+      </actions>
+    </library>
   </cues>
 </mdscript>

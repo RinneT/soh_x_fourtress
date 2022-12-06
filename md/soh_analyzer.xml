@@ -5,18 +5,20 @@
   <cues>
 
     <!-- The result of this cue is a list of Processed Events. The structure of a Processed Event is:
+    $eventName            (Table)     - The name of the event with metadata. $eventName as the key (e.g. $Battle of Litany Fury I). $eventNo as a number (TODO)
     $eventType            (String)    - Type of the processed Event (e.g. 'battle')
     $numberOfEvents       (Integer)   - Number of Global Events that are summarized in this Event
     $scale                (String)    - How large the Event is considered. (e.g. 'tiny', 'epic')
     $sector               (String)    - The sector the Event is associated with
     $numberOfParticipants (Integer)   - The number of units that participated in this Event
-    $participants         (Table)     - list of the participants in this event, with '$ObjectId' as the key (E.g. '$RXM-030')
+    $participants         (Table)     - list of the participants in this event, with '$ObjectId' as the key (E.g. '$RXM-030') 
     $startTime            (Timestamp) - When the first Global Event of this Event occured
     $endTime              (Timestamp) - When the last Global Event of this Event occured
     $center               (Position)  - The positional centroid of this Event
+    $majorEvents          (List)      - Major Events that occured in this Event. Objects in this list are of type GlobalEvent (see soh_observer.xml)
     -->
 
-    <cue name="SoHAnalyzeGlobalEvents" checkinterval="2min" instantiate="true">
+    <cue name="SoHAnalyzeGlobalEvents" checkinterval="10min" instantiate="true">
       <conditions>
       </conditions>
 
@@ -31,6 +33,11 @@
         <!-- initalize the processed events list, if it does not yet exist -->
         <do_if value="not global.$SoHProcessedEvents?">
           <set_value name="global.$SoHProcessedEvents" exact="[]" />
+        </do_if>
+
+        <!-- initalize the event names table, if it does not yet exist -->
+        <do_if value="not global.$SoHEventNames?">
+          <set_value name="global.$SoHEventNames" exact="table[]" />
         </do_if>
 
         <!-- Split the global events by sector -->
@@ -59,9 +66,19 @@
             <!-- If it does not belong to a processed Event, create a new one -->
             <!-- Fields that are left empty for now, will be filled later in post processing or by other functions -->
             <do_if value="not $ProcessedEvent">
-              <debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" />
+              <!--debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" /-->
               <set_value name="$Participants" exact="table[{'$' + $SectorEvent.$attackerId} = $SectorEvent.$attackerType, {'$' + $SectorEvent.$attackedId} = $SectorEvent.$attackedType]"/>
-              <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants, $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos]"/>
+              <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants,
+                $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos, $majorEvents = []]"/>
+
+              <!-- if the currently evaluated event is considered major, add it for later detail reference -->
+              <run_actions ref="SoHIsEventMajor" result="$isMajorEvent">
+                <param name="SectorEvent" value="$SectorEvent"/>
+              </run_actions>
+              <do_if value="$isMajorEvent">
+                <append_to_list name="$ProcessedEvent.$majorEvents" exact="$SectorEvent" />
+              </do_if>
+              
               <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
             </do_if>
           </do_for_each>
@@ -87,16 +104,16 @@
         <param name="ProcessedEvents"/>
         <param name="SectorEvent"/>
         <param name="Event_Max_Time" default="5min"/>
-        <param name="Event_Max_Range" default="30km"/>
+        <param name="Event_Max_Range" default="100km"/>
       </params>
       <actions>
-        <debug_text text="'Comparing Event at %1 with %2 Processed Events'.[$SectorEvent.$timestamp, $ProcessedEvents.count]" />
+        <!--debug_text text="'Comparing Event at %1 with %2 Processed Events'.[$SectorEvent.$timestamp, $ProcessedEvents.count]" /-->
         <do_for_each name="$ProcessedEvent" in="$ProcessedEvents">
           <!-- If it belongs to the Processed Event, update it and break out of the loop by returning the Event. -->
           <set_value name="$EventInTime" exact="($SectorEvent.$timestamp - $ProcessedEvent.$endTime) lt $Event_Max_Time"  />
           <set_value name="$EventInRange" exact="$SectorEvent.$attackedPos.distanceto.{$ProcessedEvent.$center} lt $Event_Max_Range" />
           <do_if value="$EventInTime and $EventInRange">
-            <debug_text text="'Updating Processed Event with Timestamp %1 to %2.'.[$ProcessedEvent.$endTime, $SectorEvent.$timestamp]" />
+            <!-- debug_text text="'Updating Processed Event with Timestamp %1 to %2.'.[$ProcessedEvent.$endTime, $SectorEvent.$timestamp]" /-->
             <!-- Shift the Event centroid -->
             <run_actions ref="SoHShiftCentroid" >
               <param name="ProcessedEvent" value="$ProcessedEvent"/>
@@ -106,8 +123,17 @@
             <!-- Update the timestamp -->
             <set_value name="$ProcessedEvent.$endTime" exact="$SectorEvent.$timestamp" />
             <!-- Add the Event participants if they do not yet exist -->
-            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackerId}" exact="1"/>
-            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackedId}" exact="1"/>
+            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackerId}" exact="$SectorEvent.$attackerType"/>
+            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackedId}" exact="$SectorEvent.$attackedType"/>
+
+            <!-- Add the current Global / Sector Event as reference if it is considered major -->
+            <run_actions ref="SoHIsEventMajor" result="$isMajorEvent">
+              <param name="SectorEvent" value="$SectorEvent"/>
+            </run_actions>
+            <do_if value="$isMajorEvent">
+              <append_to_list name="$ProcessedEvent.$majorEvents" exact="$SectorEvent" />
+            </do_if>
+
             <!-- Update the Number of Events -->
             <set_value name="$ProcessedEvent.$numberOfEvents" exact="$ProcessedEvent.$numberOfEvents + 1" />
             <return value="$ProcessedEvent"/>
@@ -137,10 +163,28 @@
 
         <create_position name="$newCenter" x="$centerX" y="$centerY" z="$centerZ"/>
 
-        <debug_text text="'Shifted Event centroid from %1 to %2'.[$center, $newCenter]"/>
+        <!--debug_text text="'Shifted Event centroid from %1 to %2'.[$center, $newCenter]"/-->
         <set_value name="$ProcessedEvent.$center" exact="$newCenter"/>
 
         <remove_value name="$center" />
+      </actions>
+    </library>
+
+    <!-- Evaluates if the Event of type GlobalEvent is considered major (E.g. if a capital ship was destroyed).  -->
+    <library name="SoHIsEventMajor" purpose="run_actions">
+      <params>
+        <param name="SectorEvent"/>
+      </params>
+      <actions>
+        <do_if value="'SoHDestroyed' == $SectorEvent.$eventType and 
+        shiptype.destroyer == $SectorEvent.$attackedType or
+        shiptype.battleship == $SectorEvent.$attackedType or 
+        shiptype.carrier == $SectorEvent.$attackedType or 
+        shiptype.resupplier == $SectorEvent.$attackedType">
+        <debug_text text="'SoHIsEventMajor returns true because %1 was destroyed.'.[$SectorEvent.$attackedType]"/>
+          <return value="true"/>
+        </do_if>
+        <return value="false"/>
       </actions>
     </library>
 

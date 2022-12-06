@@ -119,7 +119,6 @@
             </check_any>
           </conditions>
           <actions>
-            <debug_text text="'Called TrackAllDestructions for event.param %1.'.[event.param]" />
             <do_if value="event.param">
 
               <!-- initalize the global event list, if it does not yet exist -->

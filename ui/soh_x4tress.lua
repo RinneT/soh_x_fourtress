@@ -52,15 +52,17 @@ function newFuncs.creteSohHistory(inputframe, instance)
 	row[1]:createText(ReadText(1001, 2404), Helper.headerRowCenteredProperties)
 
 	local descriptiontext = GetTextLines(description, Helper.standardFont, Helper.scaleFont(Helper.standardFont, Helper.standardFontSize), inputframe.properties.width - 2 * Helper.scaleX(Helper.standardTextOffsetx))
-	if #descriptiontext > 12 then
-		-- scrollbar case
-		descriptiontext = GetTextLines(description, Helper.standardFont, Helper.scaleFont(Helper.standardFont, Helper.standardFontSize), inputframe.properties.width - 2 * Helper.scaleX(Helper.standardTextOffsetx) - Helper.scrollbarWidth)
-	end
-	for linenum, descline in ipairs(descriptiontext) do
-		local row = table_description:addRow(true, { bgColor = Helper.color.transparent })
-		row[1]:createText(descline)
-		if linenum == 12 then
-			visibleHeight = table_description:getFullHeight()
+	if descriptiontext ~=nil then
+		if #descriptiontext > 14 then
+			-- scrollbar case
+			descriptiontext = GetTextLines(description, Helper.standardFont, Helper.scaleFont(Helper.standardFont, Helper.standardFontSize), inputframe.properties.width - 2 * Helper.scaleX(Helper.standardTextOffsetx) - Helper.scrollbarWidth)
+		end
+		for linenum, descline in ipairs(descriptiontext) do
+			local row = table_description:addRow(true, { bgColor = Helper.color.transparent })
+			row[1]:createText(descline)
+			if linenum == 14 then
+				visibleHeight = table_description:getFullHeight()
+			end
 		end
 	end
 
@@ -85,6 +87,7 @@ function newFuncs.creteSohHistory(inputframe, instance)
 
 	table_header:addConnection(1, (instance == "left") and 2 or 3, true)
 	table_description:addConnection(3, (instance == "left") and 2 or 3)
+	
 end
 
 -- Calls the init function of this script
