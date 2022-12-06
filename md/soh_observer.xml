@@ -114,49 +114,52 @@
         <cue name="TrackAllDestructions" instantiate="true">
           <conditions>
             <check_any>
-              <event_object_attacked_object group="$AllShips" />
-              <event_object_attacked_object group="$AllStations" />
+              <event_object_destroyed group="$AllShips" />
+              <event_object_destroyed group="$AllStations" />
             </check_any>
           </conditions>
           <actions>
+            <debug_text text="'Called TrackAllDestructions for event.param %1.'.[event.param]" />
+            <do_if value="event.param">
 
-            <!-- initalize the global event list, if it does not yet exist -->
-            <do_if value="not global.$SoHGlobalEvents?">
-              <set_value name="global.$SoHGlobalEvents" exact="[]" />
+              <!-- initalize the global event list, if it does not yet exist -->
+              <do_if value="not global.$SoHGlobalEvents?">
+                <set_value name="global.$SoHGlobalEvents" exact="[]" />
+              </do_if>
+
+              <set_value name="$Timestamp" exact="player.age" />
+
+              <set_value name="$AttackerId" exact="event.param.idcode" />
+              <set_value name="$Attacker" exact="event.param.knownname" />
+              <do_if value="event.param.isclass.ship">
+                <set_value name="$AttackerType" exact="event.param.type" />
+              </do_if>
+              <do_else>
+                <set_value name="$AttackerType" exact="event.param.class" />
+              </do_else>
+              <set_value name="$AttackerFaction" exact="event.param.owner.knownname" />
+              <set_value name="$AttackedId" exact="event.object.idcode" />
+              <set_value name="$Attacked" exact="event.object.knownname" />
+              <do_if value="event.object.isclass.ship">
+                <set_value name="$AttackedType" exact="event.object.type" />
+              </do_if>
+              <do_else>
+                <set_value name="$AttackedType" exact="event.object.class" />
+              </do_else>
+              <set_value name="$AttackedFaction" exact="event.object.owner.knownname" />
+              <set_value name="$AttackedPos" exact="event.object.position" />
+
+              
+
+              <!-- Write data to a global event list -->
+              <append_to_list name="global.$SoHGlobalEvents" exact="table[$timestamp = $Timestamp, $eventType = 'SoHDestroyed', $attackerId = $AttackerId, $attacker = $Attacker, $attackerType = $AttackerType, $attackerFaction = $AttackerFaction, $attackedId = $AttackedId, $attacked = $Attacked, $attackedType = $AttackedType, $targetComponent = null, $attackedFaction = $AttackedFaction, $sector = event.object.sector.knownname, $attackedPos = $AttackedPos]" />
+              <!--append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" /-->
+
+              <!-- Debug to csv file for algorithm development -->
+              <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackedType, $AttackerFaction, $AttackedId, $Attacked, $AttackedType, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
+              <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
+              <remove_value name="$AttackLog" />
             </do_if>
-
-            <set_value name="$Timestamp" exact="player.age" />
-
-            <set_value name="$AttackerId" exact="event.param.idcode" />
-            <set_value name="$Attacker" exact="event.param.knownname" />
-            <do_if value="event.param.isclass.ship">
-              <set_value name="$AttackerType" exact="event.param.type" />
-            </do_if>
-            <do_else>
-              <set_value name="$AttackerType" exact="event.param.class" />
-            </do_else>
-            <set_value name="$AttackerFaction" exact="event.param.owner.knownname" />
-            <set_value name="$AttackedId" exact="event.object.idcode" />
-            <set_value name="$Attacked" exact="event.object.knownname" />
-            <do_if value="event.object.isclass.ship">
-              <set_value name="$AttackedType" exact="event.object.type" />
-            </do_if>
-            <do_else>
-              <set_value name="$AttackedType" exact="event.object.class" />
-            </do_else>
-            <set_value name="$AttackedFaction" exact="event.object.owner.knownname" />
-            <set_value name="$AttackedPos" exact="event.object.position" />
-
-            
-
-            <!-- Write data to a global event list -->
-            <append_to_list name="global.$SoHGlobalEvents" exact="table[$timestamp = $Timestamp, $eventType = 'SoHAttacked', $attackerId = $AttackerId, $attacker = $Attacker, $attackerType = $AttackerType, $attackerFaction = $AttackerFaction, $attackedId = $AttackedId, $attacked = $Attacked, $attackedType = $AttackedType, $targetComponent = null, $attackedFaction = $AttackedFaction, $sector = event.object.sector.knownname, $attackedPos = $AttackedPos]" />
-            <!--append_to_list name="global.$SoHGlobalEvents" exact="[$Timestamp, 'SoHDestroyed', $AttackerId, $Attacker, $AttackerFaction, $AttackedId, $Attacked, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" /-->
-
-            <!-- Debug to csv file for algorithm development -->
-            <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackedType, $AttackerFaction, $AttackedId, $Attacked, $AttackedType, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
-            <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
-            <remove_value name="$AttackLog" />
             <!-- End Debug -->
           </actions>
         </cue>
