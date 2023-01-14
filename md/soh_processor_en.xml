@@ -22,7 +22,7 @@
         <do_for_each name="$ProcessedEvent" in="@global.$SoHProcessedEvents">
           <!-- Check if the Unit name is part of the participants table -->
           <set_value name="$Participants" exact="$ProcessedEvent.$participants"/>
-          <set_value name="$SelectedUnitType" exact="@$Participants.{'$' + $SelectedId}"/>
+          <set_value name="$SelectedUnitType" exact="@$Participants.{'$' + $SelectedId}.$shipType}"/>
           <do_if value="$SelectedUnitType">
             <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
             <run_actions ref="SoHCreateBattleText" result="$displayText" >
@@ -90,7 +90,7 @@
         <debug_text text="'SoHGenerateMajorParticipantsText: $ProcessedEvent.$participants.keys.list: %1 Count: %2'.[$ProcessedEvent.$participants.keys.list, $ProcessedEvent.$participants.keys.list.count]" />
         
         <do_for_each name="$participantId" in="$ProcessedEvent.$participants.keys.list">
-          <set_value name="$participantType" exact="$ProcessedEvent.$participants.{$participantId}"/>
+          <set_value name="$participantType" exact="$ProcessedEvent.$participants.{$participantId.{'$shipType'}}"/>
           <debug_text text="'SoHGenerateMajorParticipantsText: $participantType: %1'.[$participantType]" />
           <do_if value="shiptype.destroyer == $participantType or 
           shiptype.battleship == $participantType or 

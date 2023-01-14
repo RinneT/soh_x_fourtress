@@ -11,11 +11,19 @@
     $scale                (String)    - How large the Event is considered. (e.g. 'tiny', 'epic')
     $sector               (String)    - The sector the Event is associated with
     $numberOfParticipants (Integer)   - The number of units that participated in this Event
-    $participants         (Table)     - list of the participants in this event, with '$ObjectId' as the key (E.g. '$RXM-030') 
+    $participants         (ShipInfo)  - list of the participants in this event, with '$ObjectId' as the key (E.g. '$RXM-030') and a ShipInfo table as a value
     $startTime            (Timestamp) - When the first Global Event of this Event occured
     $endTime              (Timestamp) - When the last Global Event of this Event occured
     $center               (Position)  - The positional centroid of this Event
     $majorEvents          (List)      - Major Events that occured in this Event. Objects in this list are of type GlobalEvent (see soh_observer.xml)
+    $factions             (Table)     - List of participating factions. The key is '$' + factionName. The value is factionName
+    -->
+
+    <!-- The ShipInfo object is a table with the following structure:
+      $shipId             (String)    - The '$ObjectId'
+      $shipType           (String)    - The shiptype
+      $shipFaction        (String)    - The ship faction
+      $noOfKills          (Integer)   - The number of kills this unit scored in the event
     -->
 
     <cue name="SoHAnalyzeGlobalEvents" checkinterval="10min" instantiate="true">
@@ -23,7 +31,8 @@
       </conditions>
 
       <actions>
-        <debug_text text="'Running SoHAnalyzeGlobalEvents'"/>
+        <set_value name="$StartTime" exact="player.age"/>
+        <debug_text text="'Running SoHAnalyzeGlobalEvents at %1'.[$StartTime]"/>
         <!-- initialize the constants -->
 
         <set_value name="$Min_Size_Fight" exact="2"/>
@@ -33,6 +42,11 @@
         <!-- initalize the processed events list, if it does not yet exist -->
         <do_if value="not global.$SoHProcessedEvents?">
           <set_value name="global.$SoHProcessedEvents" exact="[]" />
+        </do_if>
+
+        <!-- initalize the eligible for renaming list, if it does not yet exist -->
+        <do_if value="not global.$SoHEligibleForRenaming?">
+          <set_value name="global.$SoHEligibleForRenaming" exact="table[]" />
         </do_if>
 
         <!-- initalize the event names table, if it does not yet exist -->
@@ -64,12 +78,31 @@
               <param name="SectorEvent" value="$SectorEvent"/>
             </run_actions>
             <!-- If it does not belong to a processed Event, create a new one -->
-            <!-- Fields that are left empty for now, will be filled later in post processing or by other functions -->
+            <!-- Fields that are left empty for now will be filled later in post processing or by other functions -->
             <do_if value="not $ProcessedEvent">
               <!--debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" /-->
-              <set_value name="$Participants" exact="table[{'$' + $SectorEvent.$attackerId} = $SectorEvent.$attackerType, {'$' + $SectorEvent.$attackedId} = $SectorEvent.$attackedType]"/>
+              <set_value name="$Participants" exact="table[]"/>
+
               <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants,
-                $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos, $majorEvents = []]"/>
+                $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos, $majorEvents = [],
+                $factions = table[{'$' + $SectorEvent.$attackerFaction} = $SectorEvent.$attackerFaction]]"/>
+                <!-- Adding the Attacked faction separately. Otherwise there will be a duplicate key error, if a faction attacks its own -->
+              <set_value name="$ProcessedEvent.$factions.{'$' + $SectorEvent.$attackedFaction}" exact="$SectorEvent.$attackedFaction" />
+
+              <run_actions ref="SoHAddParticipant">
+                <param name="ProcessedEvent" value="$ProcessedEvent"/>
+                <param name="ParticipantId" value="$SectorEvent.$attackerId"/>
+                <param name="ParticipantType" value="$SectorEvent.$attackerType"/>
+                <param name="ParticipantFaction" value="$SectorEvent.$attackerFaction"/>
+                <param name="ScoredKill" value="'SoHDestroyed' == $SectorEvent.$eventType"/>
+              </run_actions>
+              <run_actions ref="SoHAddParticipant">
+                <param name="ProcessedEvent" value="$ProcessedEvent"/>
+                <param name="ParticipantId" value="$SectorEvent.$attackedId"/>
+                <param name="ParticipantType" value="$SectorEvent.$attackedType"/>
+                <param name="ParticipantFaction" value="$SectorEvent.$attackedFaction"/>
+                <param name="ScoredKill" value="false"/>
+              </run_actions>
 
               <!-- if the currently evaluated event is considered major, add it for later detail reference -->
               <run_actions ref="SoHIsEventMajor" result="$isMajorEvent">
@@ -88,12 +121,32 @@
             <set_value name="$ProcessedEvent.$eventType" exact="'battle'" />
             <set_value name="$ProcessedEvent.$numberOfParticipants" exact="$ProcessedEvent.$participants.keys.list.count" />
 
+            <!-- Check if the event made a unit become eligible for renaming -->
+            <run_actions ref="SoHCheckRenamingPossibility">
+              <param name="ProcessedEvent" value="$ProcessedEvent"/>
+            </run_actions>
+
             <append_to_list name="global.$SoHProcessedEvents" exact="$ProcessedEvent" />
           </do_for_each>
 
           <!-- Clear temp lists -->
           <clear_list list="$SoHSectorProcessedEvents" />
         </do_for_each>
+
+        
+
+        <!-- remove the Global Event after processing (TODO: Find a better solution) -->
+        <debug_text text="'Clearing Global Events'"/>
+        <set_value name="$index" exact="1"/>
+        <set_value name="$RemovalCounter" exact="0" />
+        <!-- We can break out of the loop by checking the start time, as the list is sorted by time -->
+        <!-- Index should always be one, as the elements move down -->
+        <do_while value="$index lt global.$SoHGlobalEvents.count and global.$SoHGlobalEvents.{$index}.$timestamp lt $StartTime" >
+          <remove_value name="global.$SoHGlobalEvents.{$index}" />
+          <set_value name="$RemovalCounter" exact="$RemovalCounter + 1"/>
+        </do_while>
+
+        <debug_text text="'Finished processing events. Global Event count is now %1. Deleted %2 entries!'.[@global.$SoHGlobalEvents.count, $RemovalCounter]"/>
       </actions>
     </cue>
     
@@ -123,8 +176,22 @@
             <!-- Update the timestamp -->
             <set_value name="$ProcessedEvent.$endTime" exact="$SectorEvent.$timestamp" />
             <!-- Add the Event participants if they do not yet exist -->
-            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackerId}" exact="$SectorEvent.$attackerType"/>
-            <set_value name="$ProcessedEvent.$participants.{'$' + $SectorEvent.$attackedId}" exact="$SectorEvent.$attackedType"/>
+            <run_actions ref="SoHAddParticipant">
+              <param name="ProcessedEvent" value="$ProcessedEvent"/>
+              <param name="ParticipantId" value="$SectorEvent.$attackerId"/>
+              <param name="ParticipantType" value="$SectorEvent.$attackerType"/>
+              <param name="ParticipantFaction" value="$SectorEvent.$attackerFaction"/>
+              <param name="ScoredKill" value="'SoHDestroyed' == $SectorEvent.$eventType"/>
+            </run_actions>
+            <run_actions ref="SoHAddParticipant">
+              <param name="ProcessedEvent" value="$ProcessedEvent"/>
+              <param name="ParticipantId" value="$SectorEvent.$attackedId"/>
+              <param name="ParticipantType" value="$SectorEvent.$attackedType"/>
+              <param name="ParticipantFaction" value="$SectorEvent.$attackedFaction"/>
+              <param name="ScoredKill" value="false"/>
+            </run_actions>
+            <set_value name="$ProcessedEvent.$factions.{'$' + $SectorEvent.$attackerFaction}" exact="$SectorEvent.$attackerFaction"/>
+            <set_value name="$ProcessedEvent.$factions.{'$' + $SectorEvent.$attackedFaction}" exact="$SectorEvent.$attackedFaction"/>
 
             <!-- Add the current Global / Sector Event as reference if it is considered major -->
             <run_actions ref="SoHIsEventMajor" result="$isMajorEvent">
@@ -185,6 +252,66 @@
           <return value="true"/>
         </do_if>
         <return value="false"/>
+      </actions>
+    </library>
+
+    <!-- Evaluates if an event made a unit become eligible for renaming and adds it to the list, if so.  -->
+    <library name="SoHCheckRenamingPossibility" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+      </params>
+      <actions>
+        <!-- Check all participants of the event for eligibility -->
+        <do_for_each name="$UnitId" in="$ProcessedEvent.$participants">
+          <set_value name="$Unit" exact="$ProcessedEvent.$participants.{$UnitId}" />
+          <debug_text text="'Checking kills for Unit %1'.[$Unit]" />
+          <do_if value="$Unit.$noOfKills > 30">
+            <set_value name="$NewName" exact="'Slayer of ' + $ProcessedEvent.$sector"/>
+          </do_if>
+          <do_elseif value="$Unit.$noOfKills > 20">
+            <set_value name="$NewName" exact="'Hero of ' + $ProcessedEvent.$sector"/>
+          </do_elseif>
+          <do_elseif value="$Unit.$noOfKills > 10">
+            <set_value name="$NewName" exact="'Defender of ' + $ProcessedEvent.$sector"/>
+          </do_elseif>
+
+          <do_if value="$NewName?">
+            <!-- Append the new name to the list, if the unit already has an entry. Otherwise create a new one -->
+            <do_if value="global.$SoHEligibleForRenaming.{$UnitId}?">
+              <append_to_list name="global.$SoHEligibleForRenaming.{$UnitId}" exact="$NewName"/>
+            </do_if>
+            <do_else>
+              <set_value name="global.$SoHEligibleForRenaming.{$UnitId}" exact="[$NewName]"/>
+            </do_else>
+            <debug_text text="'Added new name %2 to eligibility list for %1!'.[$Unit.$shipId, $NewName]" />
+          </do_if>
+          <remove_value name="$NewName" />
+        </do_for_each>
+      </actions>
+    </library>
+
+    <!-- Adds a participant to a processed Event. Also adds a kill if selected  -->
+    <library name="SoHAddParticipant" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="ParticipantId"/>
+        <param name="ParticipantType"/>
+        <param name="ParticipantFaction"/>
+        <param name="ScoredKill" />
+      </params>
+      <actions>
+        <!-- Check if the participant already exists in the event -->
+        <set_value name="$ParticipantExists" exact="$ProcessedEvent.$participants.{'$' + $ParticipantId}?" />
+        <do_if value="not $ParticipantExists">
+          <!-- If it does not exist, add it -->
+          <set_value name="$ProcessedEvent.$participants.{'$' + $ParticipantId}" exact="table[{'$shipId'} = $ParticipantId, {'$shipType'} = $ParticipantType, {'$shipFaction'} = $ParticipantFaction, {'$noOfKills'} = 0]"/>
+        </do_if>
+
+        <!-- If it scored a kill, add the kill -->
+        <do_if value="$ScoredKill == true">
+          <set_value name="$ProcessedEvent.$participants.{'$' + $ParticipantId}.$noOfKills" exact="($ProcessedEvent.$participants.{'$' + $ParticipantId}.$noOfKills) + 1"/>
+          <debug_text text="'Added kill for %1.'.[$ParticipantId]"/>
+        </do_if>
       </actions>
     </library>
 
