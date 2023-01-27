@@ -19,11 +19,10 @@
 
         <set_value name="$DisplayText" exact="'No known events for %1 %2'.[$SelectedClass, $SelectedId]" />
         <set_value name="$AppendText" exact="false" />
-        <do_for_each name="$ProcessedEvent" in="@global.$SoHProcessedEvents">
+        <do_for_each name="$ProcessedEvent" in="global.$SoHProcessedEvents">
           <!-- Check if the Unit name is part of the participants table -->
           <set_value name="$Participants" exact="$ProcessedEvent.$participants"/>
-          <set_value name="$SelectedUnitType" exact="@$Participants.{'$' + $SelectedId}.$shipType}"/>
-          <do_if value="$SelectedUnitType">
+          <do_if value="$Participants.{'$' + $SelectedId}?">
             <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
             <run_actions ref="SoHCreateBattleText" result="$displayText" >
               <param name="ProcessedEvent" value="$ProcessedEvent"/>
@@ -32,11 +31,11 @@
 
             <debug_text text="'Text for %1 is: %2'.[$SelectedId, $displayText]" />
             <do_if value="$AppendText">
-              <set_value name="$DisplayText" exact="$DisplayText + '\n' + $displayText"/>
+              <set_value name="$DisplayText" exact="$DisplayText + '\n' + $ProcessedEvent.$startTime + '\n' + $displayText"/>
             </do_if>
             <do_else>
               <set_value name="$AppendText" exact="true" />
-              <set_value name="$DisplayText" exact="$displayText"/>
+              <set_value name="$DisplayText" exact="$ProcessedEvent.$startTime.formatted.default + '\n' +$displayText"/>
             </do_else>
             
             <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
@@ -55,8 +54,30 @@
         <param name="SelectedUnit"/>
       </params>
       <actions>
-        <set_value name="$displayText" exact="'%1 took part in a %2 with %3 participants.\n'.[$SelectedUnit, $ProcessedEvent.$eventType, $ProcessedEvent.$numberOfParticipants]"/>
+        <set_value name="$displayText" exact="'%1 took part in '.[$SelectedUnit]"/>
+        <run_actions ref="SoHCreateFactionList" result="$factionText" >
+          <param name="Factions" value="$ProcessedEvent.$factions"/>
+        </run_actions>
+        <!-- If the event is named (e.g. "Battle for Antigone Memorial"), name the event. Otherwise just describe it. -->
+        <do_if value="$ProcessedEvent.$eventName?">
+          
+        </do_if>
+        <do_else>
+          <set_value name="$displayText" exact="$displayText + 'a %1 %2 in %3 between %4.\n'.[$ProcessedEvent.$scale, $ProcessedEvent.$eventType, $ProcessedEvent.$sector, $factionText]"/>
+        </do_else>
 
+        <!-- add generic battle statistics -->
+        <run_actions ref="SoHCreateBattleStatistics" result="$battleStatisticsText" >
+          <param name="ProcessedEvent" value="$ProcessedEvent"/>
+        </run_actions>
+        <do_if value="$battleStatisticsText?">
+          <set_value name="$displayText" exact="$displayText + $battleStatisticsText"/>
+        </do_if>
+
+
+        <!-- New until here -->
+
+        <!-- Generate text about major participants in the battle. E.g. battleships. -->
         <run_actions ref="SoHGenerateMajorParticipantsText" result="$majorShipText" >
           <param name="ProcessedEvent" value="$ProcessedEvent"/>
           <param name="SelectedUnit" value="$SelectedUnit"/>
@@ -65,12 +86,22 @@
           <set_value name="$displayText" exact="$displayText + $majorShipText"/>
         </do_if>
 
+        <!-- Generate text about major events in the battle. E.g. the destruction of battleships. -->
         <run_actions ref="SoHGenerateMajorEventsText" result="$majorEventsText" >
           <param name="ProcessedEvent" value="$ProcessedEvent"/>
           <param name="SelectedUnit" value="$SelectedUnit"/>
         </run_actions>
         <do_if value="$majorEventsText">
           <set_value name="$displayText" exact="$displayText + $majorEventsText"/>
+        </do_if>
+
+        <!-- If this text is for a specific unit, get the battle statistics for this unit. -->
+        <do_if value="$SelectedUnit?">
+          <run_actions ref="SoHCreateSelectedStatistics" result="$selectedStatisticsText" >
+            <param name="ProcessedEvent" value="$ProcessedEvent"/>
+            <param name="SelectedUnit" value="$SelectedUnit"/>
+          </run_actions>
+          <set_value name="$displayText" exact="$displayText + $selectedStatisticsText"/>
         </do_if>
         <debug_text text="'SoHCreateBattleText for %1 returns %2'.[$SelectedUnit, $displayText]" />
         <return value="$displayText"/>
@@ -86,50 +117,152 @@
       </params>
       <actions>
         <!-- collect all ships that would be considered major (e.g. capital ships) -->
-        <set_value name="$majorShips" exact="[]"/>
-        <debug_text text="'SoHGenerateMajorParticipantsText: $ProcessedEvent.$participants.keys.list: %1 Count: %2'.[$ProcessedEvent.$participants.keys.list, $ProcessedEvent.$participants.keys.list.count]" />
+        <set_value name="$majorShips" exact="table[]"/>
+        <debug_text text="'SoHGenerateMajorParticipantsText: $ProcessedEvent.$participants: %1 Count: %2'.[$ProcessedEvent.$participants, $ProcessedEvent.$participants.keys.list.count]" />
         
         <do_for_each name="$participantId" in="$ProcessedEvent.$participants.keys.list">
-          <set_value name="$participantType" exact="$ProcessedEvent.$participants.{$participantId.{'$shipType'}}"/>
-          <debug_text text="'SoHGenerateMajorParticipantsText: $participantType: %1'.[$participantType]" />
-          <do_if value="shiptype.destroyer == $participantType or 
+          <set_value name="$participantInfo" exact="$ProcessedEvent.$participants.{$participantId}"/>
+          <set_value name="$participantType" exact="$participantInfo.{'$shipType'}"/>
+          <set_value name="$participantFaction" exact="$participantInfo.{'$shipFaction'}"/>
+          <!-- <debug_text text="'SoHGenerateMajorParticipantsText: $participantFaction: %1'.[$participantFaction]" /> -->
+          <do_if value="$participantId != $SelectedUnit and (
+          shiptype.destroyer == $participantType or 
           shiptype.battleship == $participantType or 
           shiptype.carrier == $participantType or 
-          shiptype.resupplier == $participantType">
-            <substitute_text text="$participantId">
+          shiptype.resupplier == $participantType)">
+
+          <!-- save the major ships in a table by faction and by class -->
+
+          <!-- Get the existing faction map if one already exists for the given faction -->
+            <!-- <debug_text text="'SoHGenerateMajorParticipantsText: $participantInfo is: %1'.[$participantInfo]" /> -->
+            <!-- <debug_text text="'SoHGenerateMajorParticipantsText: $majorShips is: %1'.[$majorShips]" /> -->
+            <do_if value="$majorShips.{'$' + $participantFaction}?">
+              <set_value name="$factionMap" exact="$majorShips.{'$' + $participantFaction}"/>
+            </do_if>
+            <do_else>
+              <set_value name="$factionMap" exact="table[]"/>
+            </do_else>
+
+            <!-- <debug_text text="'SoHGenerateMajorParticipantsText: $factionMap is: %1'.[$factionMap]" /> -->
+            <do_if value="$factionMap.{'$' + $participantType}?">
+              <set_value name="$classList" exact="$factionMap.{'$' + $participantType}"/>
+            </do_if>
+            <do_else>
+              <set_value name="$classList" exact="[]"/>
+            </do_else>
+
+            <!-- <debug_text text="'SoHGenerateMajorParticipantsText: $classList is: %1'.[$classList]" /> -->
+            <append_to_list name="$classList" exact="$participantInfo"/>
+
+            <set_value name="$factionMap.{'$' + $participantType}" exact="$classList"/>
+            <set_value name="$majorShips.{'$' + $participantFaction}" exact="$factionMap"/>
+
+          </do_if>
+        </do_for_each>
+
+        <set_value name="$majorShipText" exact="'Major participants were'" />
+
+        <!-- generate the text -->
+        <!-- get the faction data -->
+        <debug_text text="'SoHGenerateMajorParticipantsText: $majorShips is: %1'.[$majorShips]" />
+        <do_for_each name="$faction" in="$majorShips.keys.list">
+          <set_value name="$factionMap" exact="$majorShips.{$faction}" />
+          <substitute_text text="$factionName" source="$faction">
+            <replace string="'$'" with="''"/>
+          </substitute_text>
+
+          <set_value name="$majorShipText" exact="$majorShipText + '\nthe ' + $factionName + ' '"  />
+          <!-- get the classlist for each faction -->
+          <do_for_each name="$shipType" in="$factionMap.keys.list">
+            <set_value name="$classList" exact="$factionMap.{$shipType}" />
+
+            <!-- Add the class name to the faction text -->
+            <substitute_text text="$shipType">
               <replace string="'$'" with="''"/>
             </substitute_text>
-            <debug_text text="'%1 is of type %2'.[$participantId, $participantType]" />
-            <append_to_list name="$majorShips" exact="[$participantId, $participantType]"/>
+            <set_value name="$majorShipText" exact="$majorShipText + $shipType"  />
+            
+            <!-- if more than one ship of the class exists, add an 's' for plural! -->
+            <do_if value="$classList.count gt 1">
+              <set_value name="$majorShipText" exact="$majorShipText + 's'"  />
+            </do_if>
+
+            <set_value name="$majorShipText" exact="$majorShipText + ' '"  />
+
+            <!-- Now list all ships -->
+            <do_for_each name="$ship" in="$classList">
+              <set_value name="$majorShipText" exact="$majorShipText + $ship.$shipId + ', '"  />
+            </do_for_each>
+          </do_for_each>
+
+          <!-- TODO: Replace the last ',' with a '.'! -->
+
+          <do_if value="$majorShips.keys.list.count gt 0">
+            <return value="$majorShipText + '\n'" />
           </do_if>
+          <return value="null" />
         </do_for_each>
 
-        <do_if value="$majorShips.count == 0">
-          <debug_text text="'SoHGenerateMajorParticipantsText: No major Ships found in battle'" />
-          <remove_value name="$majorShips" />
-          <return value="null"/>
-        </do_if>
-        <set_value name="$majorShipText" exact="'Other major participants were '"/>
-        <set_value name="$majorShipNo" exact="0" />
+      </actions>
+    </library>
 
-        <do_for_each name="$ship" in="$majorShips">
-          <set_value name="$majorShipNo" exact="$majorShipNo + 1" />
-          <do_if value="$majorShipNo == $majorShips.count">
-            <set_value name="$majorShipText" exact="$majorShipText + 'and '"/>
+    <!-- Return basic statistics of a battle.  -->
+    <library name="SoHCreateBattleStatistics" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+      </params>
+      <actions>
+        <set_value name="$resultText" exact="'The %1 involved %2 participants in total, of which '.[$ProcessedEvent.$eventType, $ProcessedEvent.$numberOfParticipants]"/>
+        <set_value name="$shipsPerFaction" exact="table[]" />
+        <do_for_each name="$shipId" in="$ProcessedEvent.$participants">
+          <substitute_text text="$shipId">
+            <replace string="'$'" with="''"/>
+          </substitute_text>
+          <set_value name="$ship" exact="$ProcessedEvent.$participants.{'$' + $shipId}"/>
+
+          <set_value name="$faction" exact="$ship.$shipFaction"/>
+          <set_value name="$noOfShips" exact="1"/>
+          <!-- if the faction name already exists, get its number of ships and add one -->
+          <do_if value="$shipsPerFaction.{'$' + $faction}?">
+            <set_value name="$noOfShips" exact="$shipsPerFaction.{'$' + $faction} + 1"/>
           </do_if>
-          <set_value name="$majorShipText" exact="$majorShipText + 'the %1 %2'.[$ship.{1}, $ship.{2}]"/>
-          <do_if value="$majorShipNo lt $majorShips.count - 1">
-            <set_value name="$majorShipText" exact="$majorShipText + ', '"/>
-          </do_if>
-          <do_if value="$majorShipNo == $majorShips.count">
-            <set_value name="$majorShipText" exact="$majorShipText + '.'"/>
-          </do_if>
-          <set_value name="$majorShipText" exact="$majorShipText + '\n'"/>
+
+          <set_value name="$shipsPerFaction.{'$' + $faction}" exact="$noOfShips" />
         </do_for_each>
 
-        <debug_text text="'SoHGenerateMajorParticipantsText: returns %1'.[$majorShipText]" />
-        <remove_value name="$majorShips" />
-        <return value="$majorShipText"/>
+        <!-- generate the actual text -->
+        <do_for_each name="$faction" in="$shipsPerFaction">
+          <!-- Remove the '$' from the faction name that was required for table lookup -->
+          <substitute_text text="$factionName" source="$faction">
+            <replace string="'$'" with="''"/>
+          </substitute_text>
+          <run_actions ref="SoHWriteFactionName" result="$factionName" >
+            <param name="FactionName" value="$factionName"/>
+          </run_actions>
+          
+          <do_if value="$shipsPerFaction.{$faction} == 1">
+            <set_value name="$resultText" exact="$resultText + '%1 was fielded by %2,\n'.[$shipsPerFaction.{$faction}, $factionName]" />
+          </do_if>
+          <do_else>
+            <set_value name="$resultText" exact="$resultText + '%1 were fielded by %2,\n'.[$shipsPerFaction.{$faction}, $factionName]" />
+          </do_else>
+        </do_for_each>
+
+        <!-- TODO: replace the last ',' with a '.' -->
+        <return value="$resultText"/>
+      </actions>
+    </library>
+
+    <!-- Return basic statistics for the selected unit.  -->
+    <library name="SoHCreateSelectedStatistics" purpose="run_actions">
+      <params>
+        <param name="ProcessedEvent"/>
+        <param name="SelectedUnit"/>
+      </params>
+      <actions>
+        <debug_text text="'SoHCreateSelectedStatistics: $SelectedUnit: %1'.[$SelectedUnit]" />
+        <set_value name="$ShipInfo" exact="$ProcessedEvent.$participants.{'$' + $SelectedUnit}"/>
+        <return value="'%1 destroyed %2 ships during this %3.\n'.[$SelectedUnit, $ShipInfo.$noOfKills, $ProcessedEvent.$eventType]"/>
       </actions>
     </library>
 
@@ -140,14 +273,14 @@
         <param name="SelectedUnit"/>
       </params>
       <actions>
-        <set_value name="$majorEventsText" exact="'The %1 resulted in the destruction of '.[$ProcessedEvent.$eventType]"/>
+        <set_value name="$majorEventsText" exact="'The %1 resulted in the destruction of'.[$ProcessedEvent.$eventType]"/>
         <set_value name="$numberOfMajorEvents" exact="$ProcessedEvent.$majorEvents.count"/>
         <set_value name="$majorEventNo" exact="0"/>
         <debug_text text="'SoHGenerateMajorEventsText: $ProcessedEvent.$majorEvents.count: %1'.[$ProcessedEvent.$majorEvents.count]" />
-
+        <debug_text text="'SoHGenerateMajorEventsText: $ProcessedEvent.$majorEvents are: %1'.[$ProcessedEvent.$majorEvents]" />
         <do_for_each name="$gEvent" in="$ProcessedEvent.$majorEvents">
           <set_value name="$majorEventNo" exact="$majorEventNo + 1"/>
-          <set_value name="$majorEventsText" exact="$majorEventsText + ' the %1 %2 %3'.[$gEvent.$attackedFaction,$gEvent.$attacked,$gEvent.$attackedId]" />
+          <set_value name="$majorEventsText" exact="$majorEventsText + ' the %1 %2 %3 %4'.[$gEvent.$attackedFaction, $gEvent.$attackedType, $gEvent.$attacked, $gEvent.$attackedId]" />
           <do_if value="$SelectedUnit == $gEvent.$attackerId">
             <set_value name="$majorEventsText" exact="$majorEventsText + ' by %1'.[$gEvent.$attackerId]" />
           </do_if>
@@ -160,13 +293,55 @@
           </do_elseif>
           <set_value name="$majorEventsText" exact="$majorEventsText + '\n'" />
         </do_for_each>
-        <set_value name="$majorEventsText" exact="$majorEventsText + '\n'" />
+        <set_value name="$majorEventsText" exact="$majorEventsText + '.\n'" />
         <do_if value="$majorEventNo gt 0">
           <debug_text text="'SoHGenerateMajorEventsText: returns %1'.[$majorEventsText]" />
           <return value="$majorEventsText"/>
         </do_if>
         <debug_text text="'SoHGenerateMajorEventsText: returns null'" />
         <return value="null"/>
+      </actions>
+    </library>
+
+    <!-- Convert a list of factions to a text.  -->
+    <library name="SoHCreateFactionList" purpose="run_actions">
+      <params>
+        <param name="Factions"/>
+      </params>
+      <actions>
+        <set_value name="$text" exact="''"/>
+        <set_value name="$index" exact="1" />
+
+        <do_while value="$index lt $Factions.keys.count">
+          <run_actions ref="SoHWriteFactionName" result="$factionName" >
+            <param name="FactionName" value="$Factions.{$Factions.keys.{$index}}"/>
+          </run_actions>
+          <set_value name="$text" exact="$text + $factionName + ', '"/>
+          <set_value name="$index" exact="$index + 1" />
+        </do_while>
+
+        <do_if value="$index == ($Factions.keys.count)">
+          <run_actions ref="SoHWriteFactionName" result="$factionName" >
+            <param name="FactionName" value="$Factions.{$Factions.keys.{$index}}"/>
+          </run_actions>
+          <set_value name="$text" exact="$text + 'and ' + $factionName"/>
+        </do_if>
+        <return value="$text"/>
+      </actions>
+    </library>
+
+    <!-- Sophisticated article handler  -->
+    <library name="SoHWriteFactionName" purpose="run_actions">
+      <params>
+        <param name="FactionName"/>
+      </params>
+      <actions>
+        <do_if value="player.name == $FactionName">
+          <return value="$FactionName"/>
+        </do_if>
+        <do_else>
+          <return value="'the ' + $FactionName"/>
+        </do_else>
       </actions>
     </library>
   </cues>

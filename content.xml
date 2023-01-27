@@ -2,7 +2,7 @@
 <content id="soh_x_fourtress"
 name="X Fourtress"
 author="Son of Hubert"
-version="510"
+version="600"
 date="2022-08-21"
 save="false"
 enabled="1">
@@ -11,9 +11,11 @@ enabled="1">
 description="X Fourtress&#13;&#10;
 https://www.nexusmods.com/x4foundations/mods/636&#13;&#10;
 &#13;&#10;
-Mod effects:&#13;&#10;
+This is not the greatest mod in the world, this is just a tribute to Dwarf Fortress:&#13;&#10;
 ============&#13;&#10;
-Adds stories to NPCs.&#13;&#10;
+The mod adds dedicated history to all ships and stations in the game.&#13;&#10;
+A new 'History' tab is available in the Ship Information, giving a timeline overview of the events this unit was involved in.&#13;&#10;
+Depending on their history, ships have a chance to be renamed in their honour or shame.&#13;&#10;
 "/>
 
 <dependency id="ws_2042901274" optional="false" name="SirNukes Mod Support APIs"></dependency>

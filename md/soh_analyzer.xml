@@ -121,6 +121,24 @@
             <set_value name="$ProcessedEvent.$eventType" exact="'battle'" />
             <set_value name="$ProcessedEvent.$numberOfParticipants" exact="$ProcessedEvent.$participants.keys.list.count" />
 
+            <!-- calculate the event type and size -->
+            <do_if value="$ProcessedEvent.$numberOfParticipants lt 2">
+              <set_value name="$ProcessedEvent.$eventType" exact="'nothing'"/>
+              <set_value name="$ProcessedEvent.$scale" exact="false"/>
+            </do_if>
+            <do_elseif value="$ProcessedEvent.$numberOfParticipants lt 4">
+              <set_value name="$ProcessedEvent.$eventType" exact="'fight'"/>
+              <set_value name="$ProcessedEvent.$scale" exact="'tiny'"/>
+            </do_elseif>
+            <do_elseif value="$ProcessedEvent.$numberOfParticipants lt 30">
+              <set_value name="$ProcessedEvent.$eventType" exact="'skirmish'"/>
+              <set_value name="$ProcessedEvent.$scale" exact="'medium'"/>
+            </do_elseif>
+            <do_else>
+              <set_value name="$ProcessedEvent.$eventType" exact="'battle'"/>
+              <set_value name="$ProcessedEvent.$scale" exact="'large'"/>
+            </do_else>
+
             <!-- Check if the event made a unit become eligible for renaming -->
             <run_actions ref="SoHCheckRenamingPossibility">
               <param name="ProcessedEvent" value="$ProcessedEvent"/>
@@ -198,6 +216,7 @@
               <param name="SectorEvent" value="$SectorEvent"/>
             </run_actions>
             <do_if value="$isMajorEvent">
+              <debug_text text="'Appending Sector Event as major Event, because $isMajorEvent is '.[$isMajorEvent]" />
               <append_to_list name="$ProcessedEvent.$majorEvents" exact="$SectorEvent" />
             </do_if>
 
@@ -243,12 +262,12 @@
         <param name="SectorEvent"/>
       </params>
       <actions>
-        <do_if value="'SoHDestroyed' == $SectorEvent.$eventType and 
+        <do_if value="'SoHDestroyed' == $SectorEvent.$eventType and (
         shiptype.destroyer == $SectorEvent.$attackedType or
         shiptype.battleship == $SectorEvent.$attackedType or 
         shiptype.carrier == $SectorEvent.$attackedType or 
-        shiptype.resupplier == $SectorEvent.$attackedType">
-        <debug_text text="'SoHIsEventMajor returns true because %1 was destroyed.'.[$SectorEvent.$attackedType]"/>
+        shiptype.resupplier == $SectorEvent.$attackedType)">
+        <debug_text text="'SoHIsEventMajor returns true because %1 was destroyed. Event is %2'.[$SectorEvent.$attackedType, $SectorEvent]"/>
           <return value="true"/>
         </do_if>
         <return value="false"/>
