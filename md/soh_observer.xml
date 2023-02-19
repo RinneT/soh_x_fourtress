@@ -4,21 +4,37 @@
   <!-- The data will be stored in the list global.$SoHGlobalEvents -->
   <cues>
 
-    <!-- The result of this cue is a list of Global Events. The structure of a Global Event (which is a table) is:
-     $timestamp         (Timestamp) - Timestamp of the Event
-     $eventType         (String)    - Observed Event Type. E.g. 'SohAttacked' for a registered attack
-     $attackerId        (String)    - Unit ID / Code of the attacking object
-     $attacker          (String)    - Full Name of the attacking object (knownname)
-     $attackerType      (shiptype / class) - Shiptype of the attacker object, or class if it is a station
-     $attackerFaction   (String)    - Name of the faction of the attacking object
-     $attackedId        (String)    - Unit ID / Code of the attacked object
-     $attacked          (String)    - Full Name of the attacked object (knownname)
-     $attackedType      (shiptype / class) - Shiptype of the attacked object, or class if it is a station
-     $targetComponent   (String)    - Name of the targeted component, if available
-     $attackedFaction   (String)    - Name of the faction of the attacked object
-     $sector            (String)    - Name of the Sector the Event happened in
-     $attackedPos       (position)  - Position of the attacked object
+    <!-- The result of this cue is a list of Global Events. The structure of a Global Event (which is a table) depends on the Event type.
+      The available type structures are: -->
+    
+      <!-- (SoHAttacked, SoHDestroyed):
+      $timestamp         (Timestamp) - Timestamp of the Event
+      $eventType         (String)    - Observed Event Type. E.g. 'SohAttacked' for a registered attack
+      $attackerId        (String)    - Unit ID / Code of the attacking object
+      $attacker          (String)    - Full Name of the attacking object (knownname)
+      $attackerType      (shiptype / class) - Shiptype of the attacker object, or class if it is a station
+      $attackerFaction   (String)    - Name of the faction of the attacking object
+      $attackedId        (String)    - Unit ID / Code of the attacked object
+      $attacked          (String)    - Full Name of the attacked object (knownname)
+      $attackedType      (shiptype / class) - Shiptype of the attacked object, or class if it is a station
+      $targetComponent   (String)    - Name of the targeted component, if available
+      $attackedFaction   (String)    - Name of the faction of the attacked object
+      $sector            (String)    - Name of the Sector the Event happened in
+      $attackedPos       (position)  - Position of the attacked object
     -->
+
+    <!-- (SoHRenamed):
+      $timestamp         (Timestamp) - Timestamp of the Event
+      $eventType         (String)    - Observed Event Type. E.g. 'SohRenamed' for the renaming of a ship
+      $unitId            (String)    - The id of the renamed ship
+      $oldName           (String)    - The ships old name
+      $newName           (String)    - The ships new name
+      $equipmentDockId   (String)    - The id of the equipment dock where the renaming happened
+      $equipmentDockName (String)    - The name of the equipment dock where the renaming happened
+      $sector            (String)    - Name of the Sector the Event happened in
+    -->
+
+    <!-- TODO: refactor $eventType to an integer for performance optimization -->
 
     <!-- Initialize the UI -->
     <cue name="OnLuaLoaderReady">
@@ -52,8 +68,36 @@
         <!-- Get a list of all Ships in the universe. Needs to be continuosly updated later-->
         <find_ship groupname="$AllShips" space="player.galaxy" multiple="true" />
         <find_station groupname="$AllStations" space="player.galaxy" multiple="true" />
+        <find_station groupname="$AllEquipmentDocks" space="player.galaxy" multiple="true" equipmentdock="true"/>
       </actions>
       <cues>
+        <!-- Keep the groups up to date -->
+        <cue name="TrackShipBuilt">
+          <conditions>
+            <event_object_built_ship />
+          </conditions>
+          <actions>
+            <add_to_group groupname="$AllShips" object="event.param"/>
+            <debug_text text="'Added new ship %1 to $AllShips'.[event.param.idcode]" />
+          </actions>
+        </cue>
+        <cue name="TrackStationBuilt">
+          <conditions>
+            <event_object_built_station/>
+          </conditions>
+          <actions>
+            <add_to_group groupname="$AllStations" object="event.param"/>
+            <debug_text text="'Added new station %1 to $AllStations'.[event.param.idcode]" />
+            <do_if value="event.param.isequipmentdock">
+              <add_to_group groupname="$AllEquipmentDocks" object="event.param"/>
+              <debug_text text="'Added new Equipment Dock %1 to $AllEquipmentDocks'.[event.param.idcode]" />
+            </do_if>
+          </actions>
+        </cue>
+        <!-- Removal of objects is handled in TrackAllDestructions -->
+        <!-- Universe observer scripts -->
+
+
         <cue name="TrackAllAttacks" instantiate="true">
           <conditions>
             <check_any>
@@ -158,6 +202,48 @@
               <set_value name="$AttackLog" exact="'%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s'.[$Timestamp, 'SoHAttacked', $AttackerId, $Attacker, $AttackedType, $AttackerFaction, $AttackedId, $Attacked, $AttackedType, '', $AttackedFaction, event.object.sector.knownname, $AttackedPos]" />
               <debug_to_file name="'AttackLog.csv'" directory="'x4tress'" text="$AttackLog" append="true" />
               <remove_value name="$AttackLog" />
+            </do_if>
+
+            <!-- Keep the lists clean. -->
+            <do_if value="event.object.isclass.ship">
+              <remove_from_group group="$AllShips" object="event.object" />
+              <debug_text text="'Removed ship %1 from $AllShips.'.[event.object.idcode]" />
+            </do_if>
+            <do_elseif value="event.object.isclass.station">
+              <remove_from_group group="$AllStations" object="event.object" />
+              <debug_text text="'Removed station %1 from $AllStations.'.[event.object.idcode]" />
+              <do_if value="event.object.isequipmentdock">
+                <remove_from_group group="$AllEquipmentDocks" object="event.object" />
+                <debug_text text="'Removed Equipmentdock %1 from $AllEquipmentDocks.'.[event.object.idcode]" />
+              </do_if>
+            </do_elseif>
+            <!-- End Debug -->
+          </actions>
+        </cue>
+
+        <cue name="TrackAllEquipmentDockDocking" instantiate="true">
+          <conditions>
+            <check_any>
+              <event_object_docked_at group="$AllEquipmentDocks" />
+            </check_any>
+          </conditions>
+          <actions>
+            <!-- When docking at an equipment dock, the ship has a chance to get a new name -->
+            <debug_text text="'Called TrackAllEquipmentDockDocking %1 of class %2 docking at %3 %4.'.[event.param.idcode, event.param.type, event.object.class, event.object.idcode]" />
+            <do_if value="global.$SoHEligibleForRenaming.{'$' + event.param.idcode}?">
+              <!-- TODO: Pick a random value from the list -->
+              <!-- TODO: Add handling to make sure the name is unique -->
+              <set_value name="$NewName" exact="global.$SoHEligibleForRenaming.{'$' + event.param.idcode}.{1}"/>
+              <set_value name="$OldName" exact="event.param.name"/>
+              <set_object_name object="event.param" name="$NewName"/>
+
+              <!-- remove the ship from the eligible list, clearing all possible names -->
+              <remove_from_list name="global.$SoHEligibleForRenaming.{'$' + event.param.idcode}"/>
+
+              <!-- TODO: Add the renaming Event to the Global Events list -->
+              <append_to_list name="global.$SoHGlobalEvents" exact="table[$timestamp = $Timestamp, $eventType = 'SoHRenamed', $unitId = event.param.idcode, $oldName = $OldName, $newName = $NewName, $equipmentDockId = event.object.idcode, $equipmentDockName = event.object.name, $sector = event.object.sector.knownname]" />
+
+              <debug_text text="'Changed name of %1 from %2 to %3'.[event.param.idcode, $OldName, $NewName]" />
             </do_if>
             <!-- End Debug -->
           </actions>

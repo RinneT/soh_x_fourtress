@@ -4,8 +4,11 @@
   <!-- This script also removes processed or deprecated info from the SoHGlobalEvents list -->
   <cues>
 
-    <!-- The result of this cue is a list of Processed Events. The structure of a Processed Event is:
+    <!-- The result of this cue is a list of Processed Events. The structure of a Processed Event (which is a table) depends on the Event type.
+      The available type structures are: -->
+    <!-- battle, skirmish, fight: 
     $eventName            (Table)     - The name of the event with metadata. $eventName as the key (e.g. $Battle of Litany Fury I). $eventNo as a number (TODO)
+    $eventClass           (String)    - The event class. E.g. a battle, a ship renaming, etc.. The event class can have an influence on the contained values
     $eventType            (String)    - Type of the processed Event (e.g. 'battle')
     $numberOfEvents       (Integer)   - Number of Global Events that are summarized in this Event
     $scale                (String)    - How large the Event is considered. (e.g. 'tiny', 'epic')
@@ -18,6 +21,8 @@
     $majorEvents          (List)      - Major Events that occured in this Event. Objects in this list are of type GlobalEvent (see soh_observer.xml)
     $factions             (Table)     - List of participating factions. The key is '$' + factionName. The value is factionName
     -->
+
+    <!-- SoHRenaming: Is a clone of the same GlobalEvent -->
 
     <!-- The ShipInfo object is a table with the following structure:
       $shipId             (String)    - The '$ObjectId'
@@ -73,52 +78,58 @@
 
           <!-- For each GlobalEvent of this sector, check if it can be assigned to any Processed Event. If not, create a new Processed Event from it -->
           <do_for_each name="$SectorEvent" in="$SectorEvents">
-            <run_actions ref="SoHBelongsToEvent" result="$ProcessedEvent">
-              <param name="ProcessedEvents" value="$SoHSectorProcessedEvents"/>
-              <param name="SectorEvent" value="$SectorEvent"/>
-            </run_actions>
-            <!-- If it does not belong to a processed Event, create a new one -->
-            <!-- Fields that are left empty for now will be filled later in post processing or by other functions -->
-            <do_if value="not $ProcessedEvent">
-              <!--debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" /-->
-              <set_value name="$Participants" exact="table[]"/>
-
-              <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants,
-                $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos, $majorEvents = [],
-                $factions = table[{'$' + $SectorEvent.$attackerFaction} = $SectorEvent.$attackerFaction]]"/>
-                <!-- Adding the Attacked faction separately. Otherwise there will be a duplicate key error, if a faction attacks its own -->
-              <set_value name="$ProcessedEvent.$factions.{'$' + $SectorEvent.$attackedFaction}" exact="$SectorEvent.$attackedFaction" />
-
-              <run_actions ref="SoHAddParticipant">
-                <param name="ProcessedEvent" value="$ProcessedEvent"/>
-                <param name="ParticipantId" value="$SectorEvent.$attackerId"/>
-                <param name="ParticipantType" value="$SectorEvent.$attackerType"/>
-                <param name="ParticipantFaction" value="$SectorEvent.$attackerFaction"/>
-                <param name="ScoredKill" value="'SoHDestroyed' == $SectorEvent.$eventType"/>
-              </run_actions>
-              <run_actions ref="SoHAddParticipant">
-                <param name="ProcessedEvent" value="$ProcessedEvent"/>
-                <param name="ParticipantId" value="$SectorEvent.$attackedId"/>
-                <param name="ParticipantType" value="$SectorEvent.$attackedType"/>
-                <param name="ParticipantFaction" value="$SectorEvent.$attackedFaction"/>
-                <param name="ScoredKill" value="false"/>
-              </run_actions>
-
-              <!-- if the currently evaluated event is considered major, add it for later detail reference -->
-              <run_actions ref="SoHIsEventMajor" result="$isMajorEvent">
+            <do_if value="$SectorEvent.$eventType == 'SoHRenamed'">
+              <!-- The Renaming processed Event is the same as the Global Event -->
+              <append_to_list name="global.$SoHProcessedEvents" exact="$SectorEvent" />
+            </do_if>
+            <do_else>
+              <run_actions ref="SoHBelongsToEvent" result="$ProcessedEvent">
+                <param name="ProcessedEvents" value="$SoHSectorProcessedEvents"/>
                 <param name="SectorEvent" value="$SectorEvent"/>
               </run_actions>
-              <do_if value="$isMajorEvent">
-                <append_to_list name="$ProcessedEvent.$majorEvents" exact="$SectorEvent" />
-              </do_if>
               
-              <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
-            </do_if>
+              <!-- If it does not belong to a processed Event, create a new one -->
+              <!-- Fields that are left empty for now will be filled later in post processing or by other functions -->
+              <do_if value="not $ProcessedEvent">
+                <!--debug_text text="'Creating new Processed Event with Timestamp %1.'.[$SectorEvent.$timestamp]" /-->
+                <set_value name="$Participants" exact="table[]"/>
+
+                <set_value name="$ProcessedEvent" exact="table[$numberOfEvents = 1, $sector = $SectorEvent.$sector, $participants = $Participants,
+                  $startTime = $SectorEvent.$timestamp, $endTime = $SectorEvent.$timestamp, $center = $SectorEvent.$attackedPos, $majorEvents = [],
+                  $factions = table[{'$' + $SectorEvent.$attackerFaction} = $SectorEvent.$attackerFaction]]"/>
+                  <!-- Adding the Attacked faction separately. Otherwise there will be a duplicate key error, if a faction attacks its own -->
+                <set_value name="$ProcessedEvent.$factions.{'$' + $SectorEvent.$attackedFaction}" exact="$SectorEvent.$attackedFaction" />
+
+                <run_actions ref="SoHAddParticipant">
+                  <param name="ProcessedEvent" value="$ProcessedEvent"/>
+                  <param name="ParticipantId" value="$SectorEvent.$attackerId"/>
+                  <param name="ParticipantType" value="$SectorEvent.$attackerType"/>
+                  <param name="ParticipantFaction" value="$SectorEvent.$attackerFaction"/>
+                  <param name="ScoredKill" value="'SoHDestroyed' == $SectorEvent.$eventType"/>
+                </run_actions>
+                <run_actions ref="SoHAddParticipant">
+                  <param name="ProcessedEvent" value="$ProcessedEvent"/>
+                  <param name="ParticipantId" value="$SectorEvent.$attackedId"/>
+                  <param name="ParticipantType" value="$SectorEvent.$attackedType"/>
+                  <param name="ParticipantFaction" value="$SectorEvent.$attackedFaction"/>
+                  <param name="ScoredKill" value="false"/>
+                </run_actions>
+
+                <!-- if the currently evaluated event is considered major, add it for later detail reference -->
+                <run_actions ref="SoHIsEventMajor" result="$isMajorEvent">
+                  <param name="SectorEvent" value="$SectorEvent"/>
+                </run_actions>
+                <do_if value="$isMajorEvent">
+                  <append_to_list name="$ProcessedEvent.$majorEvents" exact="$SectorEvent" />
+                </do_if>
+                
+                <append_to_list name="$SoHSectorProcessedEvents" exact="$ProcessedEvent"/>
+              </do_if>
+            </do_else>
           </do_for_each>
 
           <!-- Post Process and attach to the global list -->
           <do_for_each name="$ProcessedEvent" in="$SoHSectorProcessedEvents">
-            <set_value name="$ProcessedEvent.$eventType" exact="'battle'" />
             <set_value name="$ProcessedEvent.$numberOfParticipants" exact="$ProcessedEvent.$participants.keys.list.count" />
 
             <!-- calculate the event type and size -->
@@ -292,6 +303,10 @@
           </do_elseif>
           <do_elseif value="$Unit.$noOfKills > 10">
             <set_value name="$NewName" exact="'Defender of ' + $ProcessedEvent.$sector"/>
+          </do_elseif>
+          <!-- TODO: Remove! Only for testing purposes! -->
+          <do_elseif value="$Unit.$noOfKills > 1">
+            <set_value name="$NewName" exact="'Just some random dude in ' + $ProcessedEvent.$sector"/>
           </do_elseif>
 
           <do_if value="$NewName?">

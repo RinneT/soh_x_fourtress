@@ -20,27 +20,41 @@
         <set_value name="$DisplayText" exact="'No known events for %1 %2'.[$SelectedClass, $SelectedId]" />
         <set_value name="$AppendText" exact="false" />
         <do_for_each name="$ProcessedEvent" in="global.$SoHProcessedEvents">
-          <!-- Check if the Unit name is part of the participants table -->
-          <set_value name="$Participants" exact="$ProcessedEvent.$participants"/>
-          <do_if value="$Participants.{'$' + $SelectedId}?">
-            <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
-            <run_actions ref="SoHCreateBattleText" result="$displayText" >
-              <param name="ProcessedEvent" value="$ProcessedEvent"/>
-              <param name="SelectedUnit" value="$SelectedId"/>
-            </run_actions>
-
-            <debug_text text="'Text for %1 is: %2'.[$SelectedId, $displayText]" />
+          <!-- Check if the Event is a renaming Event (TODO: Integrate better with other code) -->
+          <do_if value="$ProcessedEvent.$eventType == 'SoHRenamed' and $ProcessedEvent.$unitId == $SelectedId">
+            <set_value name="$displayText" exact="'Due to its actions, %1 was renamed from \'%2\' to \'%3\' while docked at %4 (%5) for maintenance.\n'.[$ProcessedEvent.$unitId, $ProcessedEvent.$oldName, $ProcessedEvent.$newName, $ProcessedEvent.$equipmentDockName, $ProcessedEvent.$equipmentDockId]"/>
             <do_if value="$AppendText">
-              <set_value name="$DisplayText" exact="$DisplayText + '\n' + $ProcessedEvent.$startTime + '\n' + $displayText"/>
+              <set_value name="$DisplayText" exact="$DisplayText + '\n' + $ProcessedEvent.$timestamp.formatted.default + '\n' + $displayText"/>
             </do_if>
             <do_else>
               <set_value name="$AppendText" exact="true" />
-              <set_value name="$DisplayText" exact="$ProcessedEvent.$startTime.formatted.default + '\n' +$displayText"/>
+              <set_value name="$DisplayText" exact="$ProcessedEvent.$timestamp.formatted.default + '\n' +$displayText"/>
             </do_else>
-            
-            <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
             <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$DisplayText"/>
           </do_if>
+          <!-- Check if the Unit name is part of the participants table -->
+          <do_else>
+            <set_value name="$Participants" exact="$ProcessedEvent.$participants"/>
+            <do_if value="$Participants.{'$' + $SelectedId}?">
+              <debug_text text="'Found an event for the selected object %1!'.[$SelectedId]"/>
+              <run_actions ref="SoHCreateBattleText" result="$displayText" >
+                <param name="ProcessedEvent" value="$ProcessedEvent"/>
+                <param name="SelectedUnit" value="$SelectedId"/>
+              </run_actions>
+
+              <debug_text text="'Text for %1 is: %2'.[$SelectedId, $displayText]" />
+              <do_if value="$AppendText">
+                <set_value name="$DisplayText" exact="$DisplayText + '\n' + $ProcessedEvent.$startTime.formatted.default + '\n' + $displayText"/>
+              </do_if>
+              <do_else>
+                <set_value name="$AppendText" exact="true" />
+                <set_value name="$DisplayText" exact="$ProcessedEvent.$startTime.formatted.default + '\n' +$displayText"/>
+              </do_else>
+              
+              <!-- Call the X4tress.OnInfoMenuOpen UI event in soh_x4tress.lua and pass the text to it -->
+              <raise_lua_event name="'X4tress.OnInfoMenuOpen'" param="$DisplayText"/>
+            </do_if>
+          </do_else>
         </do_for_each>
 
 			</actions>
